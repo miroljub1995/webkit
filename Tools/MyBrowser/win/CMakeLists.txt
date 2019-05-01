@@ -10,18 +10,18 @@ set(MyBrowser_INCLUDE_DIRECTORIES
 )
 
 set(MyBrowser_SOURCES
-    AccessibilityDelegate.cpp
-    BrowserWindow.cpp
-    Common.cpp
-    DOMDefaultImpl.cpp
-    MainWindow.cpp
-    PageLoadTestClient.cpp
-    PrintWebUIDelegate.cpp
-    ResourceLoadDelegate.cpp
-    WebDownloadDelegate.cpp
-    MiniBrowserLib.rc
-    MiniBrowserWebHost.cpp
-    WebKitLegacyBrowserWindow.cpp
+    #AccessibilityDelegate.cpp
+    #BrowserWindow.cpp
+    #Common.cpp
+    #DOMDefaultImpl.cpp
+    #MainWindow.cpp
+    #PageLoadTestClient.cpp
+    #PrintWebUIDelegate.cpp
+    #ResourceLoadDelegate.cpp
+    #WebDownloadDelegate.cpp
+    #MiniBrowserLib.rc
+    #MiniBrowserWebHost.cpp
+    #WebKitLegacyBrowserWindow.cpp
     WinMain.cpp
     stdafx.cpp
 )
@@ -43,13 +43,13 @@ if (USE_CF)
     )
 endif ()
 
-if (ENABLE_WEBKIT)
-    add_definitions(-DENABLE_WEBKIT)
-    list(APPEND MyBrowser_SOURCES
-        WebKitBrowserWindow.cpp
-    )
-    list(APPEND MyBrowser_LIBRARIES WebKit)
-endif ()
+#if (ENABLE_WEBKIT)
+#    add_definitions(-DENABLE_WEBKIT)
+#    list(APPEND MyBrowser_SOURCES
+#        WebKitBrowserWindow.cpp
+#    )
+#    list(APPEND MyBrowser_LIBRARIES WebKit)
+#endif ()
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${MSVC_RUNTIME_LINKER_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:wWinMainCRTStartup")

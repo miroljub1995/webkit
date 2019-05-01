@@ -29,15 +29,20 @@
 #pragma warning(disable: 4091)
 
 #include "stdafx.h"
-#include "Common.h"
-#include "MiniBrowserLibResource.h"
-#include "MiniBrowserReplace.h"
-#include "WebKitLegacyBrowserWindow.h"
-#include <WebKitLegacy/WebKitCOMAPI.h>
+//#include "Common.h"
+//#include "MiniBrowserLibResource.h"
+//#include "MiniBrowserReplace.h"
+//#include "WebKitLegacyBrowserWindow.h"
+//#include <WebKitLegacy/WebKitCOMAPI.h>
 
 #if ENABLE(WEBKIT)
-#include "WebKitBrowserWindow.h"
+//#include "WebKitBrowserWindow.h"
 #endif
+
+void WINAPI createSimpleWindow()
+{
+
+}
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpstrCmdLine, _In_ int nCmdShow)
 {
@@ -55,49 +60,31 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     InitCtrlEx.dwICC  = 0x00004000; // ICC_STANDARD_CLASSES;
     InitCommonControlsEx(&InitCtrlEx);
 
-    auto options = parseCommandLine();
-
-    if (options.useFullDesktop)
-        computeFullDesktopFrame();
-
     // Init COM
     OleInitialize(nullptr);
 
     ::SetProcessDPIAware();
 
-    auto factory = WebKitLegacyBrowserWindow::create;
-#if ENABLE(WEBKIT)
-    if (options.windowType == BrowserWindowType::WebKit)
-        factory = WebKitBrowserWindow::create;
-#endif
-    auto& mainWindow = MainWindow::create().leakRef();
-    HRESULT hr = mainWindow.init(factory, hInst, options.usesLayeredWebView, options.pageLoadTesting);
-    if (FAILED(hr))
-        goto exit;
+	createSimpleWindow();
 
-    ShowWindow(mainWindow.hwnd(), nCmdShow);
+    //ShowWindow(mainWindow.hwnd(), nCmdShow);
 
-    hAccelTable = LoadAccelerators(hInst, MAKEINTRESOURCE(IDC_MINIBROWSER));
+    //hAccelTable = LoadAccelerators(hInst, MAKEINTRESOURCE(IDC_MINIBROWSER));
 
-    if (options.requestedURL.length())
-        mainWindow.loadURL(options.requestedURL.GetBSTR());
-    else
-        mainWindow.browserWindow()->loadHTMLString(_bstr_t(defaultHTML).GetBSTR());
-
-#pragma warning(disable:4509)
+//#pragma warning(disable:4509)
 
     // Main message loop:
-    __try {
-        _com_ptr_t<_com_IIID<IWebKitMessageLoop, &__uuidof(IWebKitMessageLoop)>> messageLoop;
+    //__try {
+      //  _com_ptr_t<_com_IIID<IWebKitMessageLoop, &__uuidof(IWebKitMessageLoop)>> messageLoop;
 
-        hr = WebKitCreateInstance(CLSID_WebKitMessageLoop, 0, IID_IWebKitMessageLoop, reinterpret_cast<void**>(&messageLoop.GetInterfacePtr()));
-        if (FAILED(hr))
-            goto exit;
+        //hr = WebKitCreateInstance(CLSID_WebKitMessageLoop, 0, IID_IWebKitMessageLoop, reinterpret_cast<void**>(&messageLoop.GetInterfacePtr()));
+        //if (FAILED(hr))
+          //  goto exit;
 
-        messageLoop->run(hAccelTable);
+        //messageLoop->run(hAccelTable);
 
-    } __except(createCrashReport(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) { }
-
+    //} __except(createCrashReport(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) { }
+    /*
 exit:
     shutDownWebKit();
 #ifdef _CRTDBG_MAP_ALLOC
@@ -107,7 +94,8 @@ exit:
     // Shut down COM.
     OleUninitialize();
 
-    return static_cast<int>(msg.wParam);
+    return static_cast<int>(msg.wParam);*/
+    return 0;
 }
 
 extern "C" __declspec(dllexport) int WINAPI dllLauncherEntryPoint(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpstrCmdLine, int nCmdShow)
