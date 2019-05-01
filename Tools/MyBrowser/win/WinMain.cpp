@@ -34,15 +34,12 @@
 //#include "MiniBrowserReplace.h"
 //#include "WebKitLegacyBrowserWindow.h"
 //#include <WebKitLegacy/WebKitCOMAPI.h>
+#include "MyBrowserWindow.h"
 
 #if ENABLE(WEBKIT)
 //#include "WebKitBrowserWindow.h"
 #endif
 
-void WINAPI createSimpleWindow()
-{
-
-}
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpstrCmdLine, _In_ int nCmdShow)
 {
@@ -65,9 +62,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
     ::SetProcessDPIAware();
 
-	createSimpleWindow();
+	MyBrowserWindow myBrowserWindow(hInstance);
 
-    //ShowWindow(mainWindow.hwnd(), nCmdShow);
+    ShowWindow(myBrowserWindow.hwnd(), nCmdShow);
 
     //hAccelTable = LoadAccelerators(hInst, MAKEINTRESOURCE(IDC_MINIBROWSER));
 

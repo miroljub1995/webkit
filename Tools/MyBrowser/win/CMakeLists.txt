@@ -19,11 +19,12 @@ set(MyBrowser_SOURCES
     #PrintWebUIDelegate.cpp
     #ResourceLoadDelegate.cpp
     #WebDownloadDelegate.cpp
-    #MiniBrowserLib.rc
+    MyBrowserLib.rc
     #MiniBrowserWebHost.cpp
     #WebKitLegacyBrowserWindow.cpp
     WinMain.cpp
     stdafx.cpp
+	MyBrowserWindow.cpp
 )
 
 set(MyBrowser_LIBRARIES
@@ -62,7 +63,7 @@ include_directories(${MyBrowser_INCLUDE_DIRECTORIES})
 add_library(MyBrowserLib SHARED ${MyBrowser_SOURCES})
 target_link_libraries(MyBrowserLib ${MyBrowser_LIBRARIES})
 
-add_executable(MyBrowser WIN32 ${TOOLS_DIR}/win/DLLLauncher/DLLLauncherMain.cpp MiniBrowser.rc)
+add_executable(MyBrowser WIN32 ${TOOLS_DIR}/win/DLLLauncher/DLLLauncherMain.cpp MyBrowser.rc)
 target_link_libraries(MyBrowser shlwapi)
 set_target_properties(MyBrowser PROPERTIES OUTPUT_NAME "MyBrowser")
 
