@@ -116,7 +116,7 @@ public:
     void timeChanged();
     void didEnd();
     virtual void durationChanged();
-    void loadingFailed(MediaPlayer::NetworkState);
+    void loadingFailed(MediaPlayer::NetworkState, MediaPlayer::ReadyState = MediaPlayer::HaveNothing, bool forceNotifications = false);
 
     virtual void sourceSetup(GstElement*);
 
@@ -149,7 +149,7 @@ private:
     virtual void updateStates();
     virtual void asyncStateChangeDone();
 
-    void createGSTPlayBin(const gchar* playbinName, const String& pipelineName);
+    void createGSTPlayBin(const URL&, const String& pipelineName);
 
     bool loadNextLocation();
     void mediaLocationChanged(GstMessage*);
@@ -180,7 +180,7 @@ private:
     static void downloadBufferFileCreatedCallback(MediaPlayerPrivateGStreamer*);
 
     void setPlaybinURL(const URL& urlString);
-    void loadFull(const String& url, const gchar* playbinName, const String& pipelineName);
+    void loadFull(const String& url, const String& pipelineName);
 
 #if GST_CHECK_VERSION(1, 10, 0)
     void updateTracks();

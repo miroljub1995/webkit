@@ -445,7 +445,8 @@ public:
     EditorState editorState(IncludePostLayoutDataHint = IncludePostLayoutDataHint::Yes) const;
     void updateEditorStateAfterLayoutIfEditabilityChanged();
 
-    String renderTreeExternalRepresentation() const;
+    // options are RenderTreeExternalRepresentationBehavior values.
+    String renderTreeExternalRepresentation(unsigned options = 0) const;
     String renderTreeExternalRepresentationForPrinting() const;
     uint64_t renderTreeSize() const;
 
@@ -473,9 +474,6 @@ public:
     void clearHistory();
 
     void accessibilitySettingsDidChange();
-#if ENABLE(ACCESSIBILITY_EVENTS)
-    void updateAccessibilityEventsEnabled(bool);
-#endif
 
     void scalePage(double scale, const WebCore::IntPoint& origin);
     void scalePageInViewCoordinates(double scale, WebCore::IntPoint centerInViewCoordinates);
@@ -624,6 +622,7 @@ public:
     void cancelPotentialTapInFrame(WebFrame&);
     void tapHighlightAtPosition(uint64_t requestID, const WebCore::FloatPoint&);
     void didRecognizeLongPress();
+    void handleDoubleTapForDoubleClickAtPoint(const WebCore::IntPoint&, OptionSet<WebKit::WebEvent::Modifier>, uint64_t lastLayerTreeTransactionId);
 
     void inspectorNodeSearchMovedToPosition(const WebCore::FloatPoint&);
     void inspectorNodeSearchEndedAtPosition(const WebCore::FloatPoint&);
@@ -764,6 +763,7 @@ public:
 
     void didApplyStyle();
     void didChangeSelection();
+    void didChangeOverflowScrollPosition();
     void didChangeContents();
     void discardedComposition();
     void canceledComposition();
@@ -1112,7 +1112,6 @@ public:
 
     static PluginView* pluginViewForFrame(WebCore::Frame*);
 
-    void sendPartialEditorStateAndSchedulePostLayoutUpdate();
     void flushPendingEditorStateUpdate();
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -1121,7 +1120,7 @@ public:
 #endif
 
 #if ENABLE(DEVICE_ORIENTATION)
-    void shouldAllowDeviceOrientationAndMotionAccess(uint64_t frameID, WebCore::SecurityOriginData&&, CompletionHandler<void(bool)>&&);
+    void shouldAllowDeviceOrientationAndMotionAccess(uint64_t frameID, WebCore::SecurityOriginData&&, bool mayPrompt, CompletionHandler<void(WebCore::DeviceOrientationOrMotionPermissionState)>&&);
 #endif
 
     void showShareSheet(WebCore::ShareDataWithParsedURL&, CompletionHandler<void(bool)>&& callback);
@@ -1179,6 +1178,8 @@ public:
 #endif
 
     void setRemoteObjectRegistry(RemoteObjectRegistry&);
+
+    void updateIntrinsicContentSizeIfNeeded(const WebCore::IntSize&);
 
 private:
     WebPage(uint64_t pageID, WebPageCreationParameters&&);
@@ -1270,6 +1271,8 @@ private:
     void validateCommand(const String&, CallbackID);
     void executeEditCommand(const String&, const String&);
     void setEditable(bool);
+
+    void didChangeSelectionOrOverflowScrollPosition();
 
     void increaseListLevel();
     void decreaseListLevel();
@@ -1755,7 +1758,7 @@ private:
     bool m_hasEverFocusedElementDueToUserInteractionSincePageTransition { false };
     bool m_isTouchBarUpdateSupressedForHiddenContentEditable { false };
     bool m_isNeverRichlyEditableForTouchBar { false };
-    bool m_changingActivityState { false };
+    OptionSet<WebCore::ActivityState::Flag> m_lastActivityStateChanges;
 
 #if ENABLE(CONTEXT_MENUS)
     bool m_isShowingContextMenu { false };
@@ -1884,12 +1887,13 @@ private:
     HashMap<uint64_t, uint64_t> m_applicationManifestFetchCallbackMap;
 #endif
 
-    OptionSet<LayerTreeFreezeReason> m_LayerTreeFreezeReasons;
+    OptionSet<LayerTreeFreezeReason> m_layerTreeFreezeReasons;
     bool m_isSuspended { false };
     bool m_needsFontAttributes { false };
 #if PLATFORM(COCOA)
     WeakPtr<RemoteObjectRegistry> m_remoteObjectRegistry;
 #endif
+    WebCore::IntSize m_lastSentIntrinsicContentSize;
 };
 
 } // namespace WebKit

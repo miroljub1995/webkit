@@ -524,6 +524,12 @@ MediaStreamEnabled:
   webcoreBinding: RuntimeEnabledFeatures
   condition: ENABLE(MEDIA_STREAM)
 
+MediaEnabled:
+  type: bool
+  defaultValue: true
+  webcoreName: mediaEnabled
+  condition: ENABLE(VIDEO)
+
 ScreenCaptureEnabled:
   type: bool
   defaultValue: true
@@ -1398,6 +1404,22 @@ ResizeObserverEnabled:
   category: experimental
   condition: ENABLE(RESIZE_OBSERVER)
 
+AdClickAttributionEnabled:
+    type: bool
+    defaultValue: false
+    humanReadableName: "Ad Click Attribution"
+    humanReadableDescription: "Enable Ad Click Attribution for Cross-Site Link Navigations"
+    webcoreBinding: RuntimeEnabledFeatures
+    category: experimental
+
+AdClickAttributionDebugModeEnabled:
+    type: bool
+    defaultValue: false
+    humanReadableName: "Ad Click Attribution Debug Mode"
+    humanReadableDescription: "Enable Ad Click Attribution Debug Mode"
+    webcoreBinding: RuntimeEnabledFeatures
+    category: experimental
+
 # For internal features:
 # The type should be boolean.
 # You must provide a humanReadableName and humanReadableDescription for all debug features. They
@@ -1453,7 +1475,7 @@ AsyncOverflowScrollingEnabled:
 
 LegacyOverflowScrollingTouchEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: true
   humanReadableName: "Legacy -webkit-overflow-scrolling property"
   humanReadableDescription: "Support the legacy -webkit-overflow-scrolling CSS property"
   condition: ENABLE(OVERFLOW_SCROLLING_TOUCH)
@@ -1593,14 +1615,6 @@ CSSLogicalEnabled:
   defaultValue: false
   humanReadableName: "CSS Logical Properties and Values"
   humanReadableDescription: "Enable CSS Logical Properties and Values"
-  webcoreBinding: RuntimeEnabledFeatures
-  category: internal
-
-AdClickAttributionEnabled:
-  type: bool
-  defaultValue: false
-  humanReadableName: "Ad Click Attribution"
-  humanReadableDescription: "Enable Ad Click Attribution for Cross-Site Link Navigations"
   webcoreBinding: RuntimeEnabledFeatures
   category: internal
 

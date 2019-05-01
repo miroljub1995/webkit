@@ -195,6 +195,25 @@ bool Quirks::isNeverRichlyEditableForTouchBar() const
     return false;
 }
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/QuirksAdditions.cpp>
+#else
+
+static bool shouldSuppressAutocorrectionAndAutocaptializationInHiddenEditableAreasForHost(const StringView&)
+{
+    return false;
+}
+
+#endif
+
+bool Quirks::shouldSuppressAutocorrectionAndAutocaptializationInHiddenEditableAreas() const
+{
+    if (!needsQuirks())
+        return false;
+
+    return shouldSuppressAutocorrectionAndAutocaptializationInHiddenEditableAreasForHost(m_document->topDocument().url().host());
+}
+
 bool Quirks::shouldDispatchSimulatedMouseEvents() const
 {
 #if PLATFORM(IOS_FAMILY)
@@ -220,7 +239,11 @@ bool Quirks::shouldDispatchSimulatedMouseEvents() const
         return true;
     if (equalLettersIgnoringASCIICase(host, "airtable.com") || host.endsWithIgnoringASCIICase(".airtable.com"))
         return true;
-    if (equalLettersIgnoringASCIICase(host, "maps.google.com"))
+    if (equalLettersIgnoringASCIICase(host, "msn.com") || host.endsWithIgnoringASCIICase(".msn.com"))
+        return true;
+    if (equalLettersIgnoringASCIICase(host, "flipkart.com") || host.endsWithIgnoringASCIICase(".flipkart.com"))
+        return true;
+    if (equalLettersIgnoringASCIICase(host, "www.google.com") && url.path().startsWithIgnoringASCIICase("/maps/"))
         return true;
     if (equalLettersIgnoringASCIICase(host, "trailers.apple.com"))
         return true;

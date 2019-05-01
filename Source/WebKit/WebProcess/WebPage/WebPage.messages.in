@@ -57,6 +57,7 @@ messages -> WebPage LegacyReceiver {
     CancelPotentialTap()
     TapHighlightAtPosition(uint64_t requestID, WebCore::FloatPoint point)
     DidRecognizeLongPress()
+    HandleDoubleTapForDoubleClickAtPoint(WebCore::IntPoint point, OptionSet<WebKit::WebEvent::Modifier> modifiers, uint64_t lastLayerTreeTransactionId)
     InspectorNodeSearchMovedToPosition(WebCore::FloatPoint point)
     InspectorNodeSearchEndedAtPosition(WebCore::FloatPoint point)
     BlurFocusedElement()
@@ -250,9 +251,6 @@ messages -> WebPage LegacyReceiver {
     WindowScreenDidChange(uint32_t displayID)
 
     AccessibilitySettingsDidChange()
-#if ENABLE(ACCESSIBILITY_EVENTS)
-    UpdateAccessibilityEventsEnabled(bool enabled)
-#endif
 
     ScalePage(double scale, WebCore::IntPoint origin)
     ScalePageInViewCoordinates(double scale, WebCore::IntPoint centerInViewCoordinates)

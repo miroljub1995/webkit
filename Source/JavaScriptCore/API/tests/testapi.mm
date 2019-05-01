@@ -565,25 +565,9 @@ static void runJITThreadLimitTests()
 static void testObjectiveCAPIMain()
 {
     @autoreleasepool {
-        JSVirtualMachine *vm = [[JSVirtualMachine alloc] init];
-        JSContext *context = [[JSContext alloc] initWithVirtualMachine:vm];
+        JSVirtualMachine* vm = [[JSVirtualMachine alloc] init];
+        JSContext* context = [[JSContext alloc] initWithVirtualMachine:vm];
         [context evaluateScript:@"bad"];
-    }
-
-    @autoreleasepool {
-        JSVirtualMachine *vm = [[JSVirtualMachine alloc] init];
-        JSContext *context = [[JSContext alloc] initWithVirtualMachine:vm];
-        JSValue *number1 = [context evaluateScript:@"42092389"];
-        JSValue *number2 = [context evaluateScript:@"42092389"];
-        checkResult(@"wrapper cache for numbers", number1 == number2 && number1.isNumber && [number1 toInt32] == 42092389);
-    }
-
-    @autoreleasepool {
-        JSVirtualMachine *vm = [[JSVirtualMachine alloc] init];
-        JSContext *context = [[JSContext alloc] initWithVirtualMachine:vm];
-        JSValue *object1 = [context evaluateScript:@"({})"];
-        JSValue *object2 = [context evaluateScript:@"({})"];
-        checkResult(@"wrapper cache for objects", object1 != object2);
     }
 
     @autoreleasepool {
@@ -1843,6 +1827,11 @@ typedef void (^FetchBlock)(JSContext *, JSValue *, JSValue *, JSValue *);
 
 + (instancetype)contextWithBlockForFetch:(FetchBlock)block;
 
+@property unsigned willEvaluateModuleCallCount;
+@property unsigned didEvaluateModuleCallCount;
+@property BOOL sawBarJS;
+@property BOOL sawFooJS;
+
 @end
 
 @implementation JSContextFetchDelegate {
@@ -1852,6 +1841,10 @@ typedef void (^FetchBlock)(JSContext *, JSValue *, JSValue *, JSValue *);
 + (instancetype)contextWithBlockForFetch:(FetchBlock)block
 {
     auto *result = [[JSContextFetchDelegate alloc] init];
+    result.willEvaluateModuleCallCount = 0;
+    result.didEvaluateModuleCallCount = 0;
+    result.sawBarJS = NO;
+    result.sawFooJS = NO;
     result->m_fetchBlock = block;
     return result;
 }
@@ -1859,6 +1852,18 @@ typedef void (^FetchBlock)(JSContext *, JSValue *, JSValue *, JSValue *);
 - (void)context:(JSContext *)context fetchModuleForIdentifier:(JSValue *)identifier withResolveHandler:(JSValue *)resolve andRejectHandler:(JSValue *)reject
 {
     m_fetchBlock(context, identifier, resolve, reject);
+}
+
+- (void)willEvaluateModule:(NSURL *)url
+{
+    self.willEvaluateModuleCallCount += 1;
+    self.sawBarJS |= [url isEqual:[NSURL URLWithString:@"file:///directory/bar.js"]];
+}
+
+- (void)didEvaluateModule:(NSURL *)url
+{
+    self.didEvaluateModuleCallCount += 1;
+    self.sawFooJS |= [url isEqual:[NSURL URLWithString:@"file:///foo.js"]];
 }
 
 @end
@@ -1893,17 +1898,31 @@ static void testFetch()
 {
     @autoreleasepool {
         auto *context = [JSContextFetchDelegate contextWithBlockForFetch:^(JSContext *context, JSValue *identifier, JSValue *resolve, JSValue *reject) {
-            if ([identifier isEqualToObject:@"file:///directory/bar.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"import \"../foo.js\"; export let exp = null;" inVirtualMachine:[context virtualMachine]]]];
-            else if ([identifier isEqualToObject:@"file:///foo.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"globalThis.ran = null;" inVirtualMachine:[context virtualMachine]]]];
-            else
+            if ([identifier isEqualToObject:@"file:///directory/bar.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"import \"../foo.js\"; export let exp = null;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/directory/bar.js"] 
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else if ([identifier isEqualToObject:@"file:///foo.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"globalThis.ran = null;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/foo.js"] 
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else
                 [reject callWithArguments:@[[JSValue valueWithNewErrorFromMessage:@"Weird path" inContext:context]]];
         }];
         context.moduleLoaderDelegate = context;
         JSValue *promise = [context evaluateScript:@"import('./bar.js');" withSourceURL:[NSURL fileURLWithPath:@"/directory" isDirectory:YES]];
         JSValue *null = [JSValue valueWithNullInContext:context];
         checkModuleCodeRan(context, promise, null);
+        checkResult(@"Context should call willEvaluateModule: twice", context.willEvaluateModuleCallCount == 2);
+        checkResult(@"Context should call didEvaluateModule: twice", context.didEvaluateModuleCallCount == 2);
+        checkResult(@"Context should see bar.js url", !!context.sawBarJS);
+        checkResult(@"Context should see foo.js url", !!context.sawFooJS);
     }
 }
 
@@ -1911,17 +1930,29 @@ static void testFetchWithTwoCycle()
 {
     @autoreleasepool {
         auto *context = [JSContextFetchDelegate contextWithBlockForFetch:^(JSContext *context, JSValue *identifier, JSValue *resolve, JSValue *reject) {
-            if ([identifier isEqualToObject:@"file:///directory/bar.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"import { n } from \"../foo.js\"; export let exp = n;" inVirtualMachine:[context virtualMachine]]]];
-            else if ([identifier isEqualToObject:@"file:///foo.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"import \"directory/bar.js\"; globalThis.ran = null; export let n = null;" inVirtualMachine:[context virtualMachine]]]];
-            else
+            if ([identifier isEqualToObject:@"file:///directory/bar.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"import { n } from \"../foo.js\"; export let exp = n;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/directory/bar.js"] 
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else if ([identifier isEqualToObject:@"file:///foo.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"import \"directory/bar.js\"; globalThis.ran = null; export let n = null;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/foo.js"]
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else
                 [reject callWithArguments:@[[JSValue valueWithNewErrorFromMessage:@"Weird path" inContext:context]]];
         }];
         context.moduleLoaderDelegate = context;
         JSValue *promise = [context evaluateScript:@"import('./bar.js');" withSourceURL:[NSURL fileURLWithPath:@"/directory" isDirectory:YES]];
         JSValue *null = [JSValue valueWithNullInContext:context];
         checkModuleCodeRan(context, promise, null);
+        checkResult(@"Context should call willEvaluateModule: twice", context.willEvaluateModuleCallCount == 2);
+        checkResult(@"Context should call didEvaluateModule: twice", context.didEvaluateModuleCallCount == 2);
     }
 }
 
@@ -1930,19 +1961,38 @@ static void testFetchWithThreeCycle()
 {
     @autoreleasepool {
         auto *context = [JSContextFetchDelegate contextWithBlockForFetch:^(JSContext *context, JSValue *identifier, JSValue *resolve, JSValue *reject) {
-            if ([identifier isEqualToObject:@"file:///directory/bar.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"import { n } from \"../foo.js\"; export let foo = n;" inVirtualMachine:[context virtualMachine]]]];
-            else if ([identifier isEqualToObject:@"file:///foo.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"import \"otherDirectory/baz.js\"; export let n = null;" inVirtualMachine:[context virtualMachine]]]];
-            else if ([identifier isEqualToObject:@"file:///otherDirectory/baz.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"import { foo } from \"../directory/bar.js\"; globalThis.ran = null; export let exp = foo;" inVirtualMachine:[context virtualMachine]]]];
-            else
+            if ([identifier isEqualToObject:@"file:///directory/bar.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"import { n } from \"../foo.js\"; export let foo = n;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/directory/bar.js"] 
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else if ([identifier isEqualToObject:@"file:///foo.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"import \"otherDirectory/baz.js\"; export let n = null;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/foo.js"] 
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else if ([identifier isEqualToObject:@"file:///otherDirectory/baz.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"import { foo } from \"../directory/bar.js\"; globalThis.ran = null; export let exp = foo;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/otherDirectory/baz.js"] 
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else
                 [reject callWithArguments:@[[JSValue valueWithNewErrorFromMessage:@"Weird path" inContext:context]]];
         }];
         context.moduleLoaderDelegate = context;
         JSValue *promise = [context evaluateScript:@"import('../otherDirectory/baz.js');" withSourceURL:[NSURL fileURLWithPath:@"/directory" isDirectory:YES]];
         JSValue *null = [JSValue valueWithNullInContext:context];
         checkModuleCodeRan(context, promise, null);
+        checkResult(@"Context should call willEvaluateModule: three times", context.willEvaluateModuleCallCount == 3);
+        checkResult(@"Context should call didEvaluateModule: three times", context.didEvaluateModuleCallCount == 3);
+        checkResult(@"Context should see bar.js url", !!context.sawBarJS);
+        checkResult(@"Context should see foo.js url", !!context.sawFooJS);
     }
 }
 
@@ -1950,15 +2000,24 @@ static void testLoaderResolvesAbsoluteScriptURL()
 {
     @autoreleasepool {
         auto *context = [JSContextFetchDelegate contextWithBlockForFetch:^(JSContext *context, JSValue *identifier, JSValue *resolve, JSValue *reject) {
-            if ([identifier isEqualToObject:@"file:///directory/bar.js"])
-                [resolve callWithArguments:@[[JSScript scriptWithSource:@"export let exp = null; globalThis.ran = null;" inVirtualMachine:[context virtualMachine]]]];
-            else
+            if ([identifier isEqualToObject:@"file:///directory/bar.js"]) {
+                [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                    withSource:@"export let exp = null; globalThis.ran = null;"
+                    andSourceURL:[NSURL fileURLWithPath:@"/directory/bar.js"] 
+                    andBytecodeCache:nil
+                    inVirtualMachine:[context virtualMachine]
+                    error:nil]]];
+            } else
                 [reject callWithArguments:@[[JSValue valueWithNewErrorFromMessage:@"Weird path" inContext:context]]];
         }];
         context.moduleLoaderDelegate = context;
         JSValue *promise = [context evaluateScript:@"import('/directory/bar.js');"];
         JSValue *null = [JSValue valueWithNullInContext:context];
         checkModuleCodeRan(context, promise, null);
+        checkResult(@"Context should call willEvaluateModule: once", context.willEvaluateModuleCallCount == 1);
+        checkResult(@"Context should call didEvaluateModule: once", context.didEvaluateModuleCallCount == 1);
+        checkResult(@"Context should see bar.js url", !!context.sawBarJS);
+        checkResult(@"Context should not see foo.js url", !context.sawFooJS);
     }
 }
 
@@ -1971,6 +2030,10 @@ static void testLoaderRejectsNilScriptURL()
         context.moduleLoaderDelegate = context;
         JSValue *promise = [context evaluateScript:@"import('../otherDirectory/baz.js');"];
         checkModuleWasRejected(context, promise);
+        checkResult(@"Context should call willEvaluateModule: zero times", context.willEvaluateModuleCallCount == 0);
+        checkResult(@"Context should call didEvaluateModule: zero times", context.didEvaluateModuleCallCount == 0);
+        checkResult(@"Context should not see bar.js url", !context.sawBarJS);
+        checkResult(@"Context should not see foo.js url", !context.sawFooJS);
     }
 }
 
@@ -1989,8 +2052,13 @@ static void testLoaderRejectsFailedFetch()
 static void testImportModuleTwice()
 {
     @autoreleasepool {
-        auto *context = [JSContextFetchDelegate contextWithBlockForFetch:^(JSContext * context, JSValue *, JSValue *resolve, JSValue *) {
-            [resolve callWithArguments:@[[JSScript scriptWithSource:@"ran++; export let exp = 1;" inVirtualMachine:[context virtualMachine]]]];
+        auto *context = [JSContextFetchDelegate contextWithBlockForFetch:^(JSContext * context, JSValue *, JSValue *resolve, JSValue *) { 
+            [resolve callWithArguments:@[[JSScript scriptOfType:kJSScriptTypeModule 
+                withSource:@"ran++; export let exp = 1;"
+                andSourceURL:[NSURL fileURLWithPath:@"/baz.js"]
+                andBytecodeCache:nil
+                inVirtualMachine:[context virtualMachine]
+                error:nil]]];
         }];
         context.moduleLoaderDelegate = context;
         context[@"ran"] = @(0);
@@ -2325,7 +2393,12 @@ static NSURL *resolvePathToScripts()
 - (void)context:(JSContext *)context fetchModuleForIdentifier:(JSValue *)identifier withResolveHandler:(JSValue *)resolve andRejectHandler:(JSValue *)reject
 {
     NSURL *filePath = [NSURL URLWithString:[identifier toString]];
-    auto *script = [JSScript scriptFromASCIIFile:filePath inVirtualMachine:context.virtualMachine withCodeSigning:nil andBytecodeCache:nil];
+    auto* script = [JSScript scriptOfType:kJSScriptTypeModule
+        memoryMappedFromASCIIFile:filePath
+        withSourceURL:filePath
+        andBytecodeCache:nil 
+        inVirtualMachine:context.virtualMachine
+        error:nil];
     if (script)
         [resolve callWithArguments:@[script]];
     else

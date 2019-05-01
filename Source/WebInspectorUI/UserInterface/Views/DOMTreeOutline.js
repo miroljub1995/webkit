@@ -30,9 +30,9 @@
 
 WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 {
-    constructor(omitRootDOMNode, selectable, excludeRevealElementContextMenu)
+    constructor({omitRootDOMNode, excludeRevealElementContextMenu, showLastSelected} = {})
     {
-        super(selectable);
+        super();
 
         this.element.addEventListener("mousedown", this._onmousedown.bind(this), false);
         this.element.addEventListener("mousemove", this._onmousemove.bind(this), false);
@@ -44,6 +44,9 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         this.element.addEventListener("dragend", this._ondragend.bind(this), false);
 
         this.element.classList.add("dom", WI.SyntaxHighlightedStyleClassName);
+
+        if (showLastSelected)
+            this.element.classList.add("show-last-selected");
 
         this._includeRootDOMNode = !omitRootDOMNode;
         this._excludeRevealElementContextMenu = excludeRevealElementContextMenu;
@@ -197,8 +200,16 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             return treeElement;
         });
 
+        // It's possible that a previously selected node will no longer exist (e.g. after navigation).
+        selectedTreeElements = selectedTreeElements.filter((x) => !!x);
+
+        if (!selectedTreeElements.length)
+            return;
+
         this.selectTreeElements(selectedTreeElements);
-        this.selectedTreeElement.reveal();
+
+        if (this.selectedTreeElement)
+            this.selectedTreeElement.reveal();
     }
 
     updateSelectionArea()
@@ -302,6 +313,12 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             return false;
 
         this._treeElementsToRemove = this.selectedTreeElements;
+
+        // Reveal all of the elements being deleted so that if the node is hidden (e.g. the parent
+        // is collapsed), we can select its siblings instead of the parent itself.
+        for (let treeElement of this._treeElementsToRemove)
+            treeElement.reveal();
+
         this._selectionController.removeSelectedItems();
 
         let levelMap = new Map;
@@ -324,12 +341,12 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
         // Track removed elements, since the opening and closing tags for the
         // same WI.DOMNode can both be selected.
-        let removedTreeElements = new Set;
+        let removedDOMNodes = new Set;
 
         for (let treeElement of this._treeElementsToRemove) {
-            if (removedTreeElements.has(treeElement))
+            if (removedDOMNodes.has(treeElement.representedObject))
                 continue;
-            removedTreeElements.add(treeElement)
+            removedDOMNodes.add(treeElement.representedObject);
             treeElement.remove();
         }
 

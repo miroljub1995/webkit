@@ -401,6 +401,7 @@ public:
     bool isVisuallyNonEmpty() const { return m_isVisuallyNonEmpty; }
     WEBCORE_EXPORT void enableAutoSizeMode(bool enable, const IntSize& minSize);
     WEBCORE_EXPORT void setAutoSizeFixedMinimumHeight(int);
+    bool isAutoSizeEnabled() const { return m_shouldAutoSize; }
     IntSize autoSizingIntrinsicContentSize() const { return m_autoSizeContentSize; }
 
     WEBCORE_EXPORT void forceLayout(bool allowSubtreeLayout = false);
@@ -738,7 +739,7 @@ private:
 #endif
 
 #if ENABLE(DARK_MODE_CSS)
-    RenderObject* rendererForSupportedColorSchemes() const;
+    RenderObject* rendererForColorScheme() const;
 #endif
 
     bool usesCompositedScrolling() const final;

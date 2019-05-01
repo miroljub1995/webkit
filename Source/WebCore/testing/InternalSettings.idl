@@ -49,6 +49,7 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
 
     [MayThrowException] void setTextAutosizingEnabled(boolean enabled);
     [MayThrowException] void setTextAutosizingWindowSizeOverride(long width, long height);
+    [MayThrowException] void setTextAutosizingUsesIdempotentMode(boolean enabled);
 
     // Media
     [MayThrowException] void setCanStartMedia(boolean enabled);
@@ -114,7 +115,6 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
 
     [EnabledAtRuntime=WebAnimations] boolean webAnimationsCSSIntegrationEnabled();
 
-    [MayThrowException] void setAccessibilityEventsEnabled(boolean enabled);
     void setShouldDeactivateAudioSession(boolean shouldDeactivate);
 };
 

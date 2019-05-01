@@ -33,6 +33,7 @@
 #include <WebKit/WKRetainPtr.h>
 #include <string>
 #include <wtf/Noncopyable.h>
+#include <wtf/RunLoop.h>
 #include <wtf/Seconds.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -88,9 +89,17 @@ public:
     bool canOpenWindows() const { return m_canOpenWindows; }
 
     void dumpAdClickAttribution();
+    void performCustomMenuAction();
 
 private:
     WKRetainPtr<WKMutableDictionaryRef> createTestSettingsDictionary();
+
+    void waitToDumpWatchdogTimerFired();
+    void initializeWaitToDumpWatchdogTimerIfNeeded();
+    void invalidateWaitToDumpWatchdogTimer();
+
+    void done();
+    void setWaitUntilDone(bool);
 
     void dumpResults();
     static void dump(const char* textToStdout, const char* textToStderr = 0, bool seenError = false);
@@ -118,6 +127,7 @@ private:
     
     WKRetainPtr<WKURLRef> m_url;
     WTF::String m_urlString;
+    RunLoop::Timer<TestInvocation> m_waitToDumpWatchdogTimer;
 
     std::string m_expectedPixelHash;
 

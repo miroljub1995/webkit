@@ -26,14 +26,18 @@
 #include "config.h"
 #include "NetworkSession.h"
 
-#include "NetworkAdClickAttribution.h"
+#include "AdClickAttributionManager.h"
 #include "NetworkProcess.h"
 #include "NetworkProcessProxyMessages.h"
+#include "NetworkResourceLoadParameters.h"
+#include "NetworkResourceLoader.h"
+#include "PingLoad.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessProxy.h"
 #include <WebCore/CookieJar.h>
 #include <WebCore/NetworkStorageSession.h>
+#include <WebCore/ResourceRequest.h>
 
 #if PLATFORM(COCOA)
 #include "NetworkSessionCocoa.h"
@@ -71,8 +75,14 @@ NetworkStorageSession& NetworkSession::networkStorageSession() const
 NetworkSession::NetworkSession(NetworkProcess& networkProcess, PAL::SessionID sessionID)
     : m_sessionID(sessionID)
     , m_networkProcess(networkProcess)
-    , m_adClickAttribution(makeUniqueRef<NetworkAdClickAttribution>())
+    , m_adClickAttribution(makeUniqueRef<AdClickAttributionManager>(sessionID))
 {
+    m_adClickAttribution->setPingLoadFunction([this, weakThis = makeWeakPtr(this)](NetworkResourceLoadParameters&& loadParameters, CompletionHandler<void(const WebCore::ResourceError&, const WebCore::ResourceResponse&)>&& completionHandler) {
+        if (!weakThis)
+            return;
+        // PingLoad manages its own lifetime, deleting itself when its purpose has been fulfilled.
+        new PingLoad(m_networkProcess, WTFMove(loadParameters), WTFMove(completionHandler));
+    });
 }
 
 NetworkSession::~NetworkSession()
@@ -137,12 +147,12 @@ void NetworkSession::registrableDomainsWithWebsiteData(OptionSet<WebsiteDataType
 
 void NetworkSession::storeAdClickAttribution(WebCore::AdClickAttribution&& adClickAttribution)
 {
-    m_adClickAttribution->store(WTFMove(adClickAttribution));
+    m_adClickAttribution->storeUnconverted(WTFMove(adClickAttribution));
 }
 
-void NetworkSession::convertAdClickAttribution(const WebCore::AdClickAttribution::Source& source, const WebCore::AdClickAttribution::Destination& destination, WebCore::AdClickAttribution::Conversion&& conversion)
+void NetworkSession::handleAdClickAttributionConversion(AdClickAttribution::Conversion&& conversion, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest)
 {
-    m_adClickAttribution->convert(source, destination, WTFMove(conversion));
+    m_adClickAttribution->handleConversion(WTFMove(conversion), requestURL, redirectRequest);
 }
 
 void NetworkSession::dumpAdClickAttribution(CompletionHandler<void(String)>&& completionHandler)
@@ -150,9 +160,43 @@ void NetworkSession::dumpAdClickAttribution(CompletionHandler<void(String)>&& co
     m_adClickAttribution->toString(WTFMove(completionHandler));
 }
 
-void NetworkSession::clearAdClickAttribution(CompletionHandler<void()>&& completionHandler)
+void NetworkSession::clearAdClickAttribution()
 {
-    m_adClickAttribution->clear(WTFMove(completionHandler));
+    m_adClickAttribution->clear();
+}
+
+void NetworkSession::clearAdClickAttributionForRegistrableDomain(WebCore::RegistrableDomain&& domain)
+{
+    m_adClickAttribution->clearForRegistrableDomain(WTFMove(domain));
+}
+
+void NetworkSession::setAdClickAttributionOverrideTimerForTesting(bool value)
+{
+    m_adClickAttribution->setOverrideTimerForTesting(value);
+}
+
+void NetworkSession::setAdClickAttributionConversionURLForTesting(URL&& url)
+{
+    m_adClickAttribution->setConversionURLForTesting(WTFMove(url));
+}
+
+void NetworkSession::markAdClickAttributionsAsExpiredForTesting()
+{
+    m_adClickAttribution->markAllUnconvertedAsExpiredForTesting();
+}
+
+void NetworkSession::addKeptAliveLoad(Ref<NetworkResourceLoader>&& loader)
+{
+    ASSERT(m_sessionID == loader->sessionID());
+    ASSERT(!m_keptAliveLoads.contains(loader));
+    m_keptAliveLoads.add(WTFMove(loader));
+}
+
+void NetworkSession::removeKeptAliveLoad(NetworkResourceLoader& loader)
+{
+    ASSERT(m_sessionID == loader.sessionID());
+    ASSERT(m_keptAliveLoads.contains(loader));
+    m_keptAliveLoads.remove(loader);
 }
 
 } // namespace WebKit

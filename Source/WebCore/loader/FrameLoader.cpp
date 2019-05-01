@@ -592,6 +592,8 @@ void FrameLoader::didExplicitOpen()
     // Calling document.open counts as committing the first real document load.
     if (!m_stateMachine.committedFirstRealDocumentLoad())
         m_stateMachine.advanceTo(FrameLoaderStateMachine::DisplayingInitialEmptyDocumentPostCommit);
+
+    m_client.dispatchDidExplicitOpen(m_frame.document() ? m_frame.document()->url() : URL());
     
     // Prevent window.open(url) -- eg window.open("about:blank") -- from blowing away results
     // from a subsequent window.document.open / window.document.write call. 
@@ -2463,7 +2465,8 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             if (!pdl->isLoadingInAPISense() || pdl->isStopping()) {
                 RELEASE_LOG_IF_ALLOWED("checkLoadCompleteForThisFrame: Failed provisional load (frame = %p, main = %d, isTimeout = %d, isCancellation = %d, errorCode = %d)", &m_frame, m_frame.isMainFrame(), error.isTimeout(), error.isCancellation(), error.errorCode());
                 m_provisionalLoadErrorBeingHandledURL = m_provisionalDocumentLoader->url();
-                m_client.dispatchDidFailProvisionalLoad(error);
+
+                m_client.dispatchDidFailProvisionalLoad(error, history().provisionalItem() ? WillContinueLoading::Yes : WillContinueLoading::No);
 #if ENABLE(CONTENT_FILTERING)
                 if (auto contentFilter = pdl->contentFilter())
                     contentFilter->handleProvisionalLoadFailure(error);
@@ -3066,7 +3069,7 @@ unsigned long FrameLoader::loadResourceSynchronously(const ResourceRequest& requ
     if (error.isNull()) {
         if (auto* page = m_frame.page()) {
             if (m_documentLoader) {
-                auto results = page->userContentProvider().processContentRuleListsForLoad(newRequest.url(), ResourceType::Raw, *m_documentLoader);
+                auto results = page->userContentProvider().processContentRuleListsForLoad(newRequest.url(), ContentExtensions::ResourceType::Raw, *m_documentLoader);
                 bool blockedLoad = results.summary.blockedLoad;
                 ContentExtensions::applyResultsToRequest(WTFMove(results), page, newRequest);
                 if (blockedLoad) {

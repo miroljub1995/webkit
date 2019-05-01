@@ -1,3 +1,200 @@
+2019-04-30  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r244806.
+        https://bugs.webkit.org/show_bug.cgi?id=197446
+
+        Causing Test262 and JSC test failures on multiple builds
+        (Requested by ShawnRoberts on #webkit).
+
+        Reverted changeset:
+
+        "TypeArrays should not store properties that are canonical
+        numeric indices"
+        https://bugs.webkit.org/show_bug.cgi?id=197228
+        https://trac.webkit.org/changeset/244806
+
+2019-04-30  Tadeu Zagallo  <tzagallo@apple.com>
+
+        TypeArrays should not store properties that are canonical numeric indices
+        https://bugs.webkit.org/show_bug.cgi?id=197228
+        <rdar://problem/49557381>
+
+        Reviewed by Darin Adler.
+
+        * stress/typed-array-canonical-numeric-index-string.js: Added.
+        (makeTest.assert):
+        (makeTest):
+        (const.testInvalidIndices.makeTest.set assert):
+        (const.testInvalidIndices.makeTest):
+        (const.testValidIndices.makeTest.set assert):
+        (const.testValidIndices.makeTest):
+
+2019-04-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        normalizeMapKey should normalize NaN to one PureNaN bit pattern to make MapHash same
+        https://bugs.webkit.org/show_bug.cgi?id=197362
+
+        Reviewed by Saam Barati.
+
+        * stress/map-with-nan.js: Added.
+        (shouldBe):
+        (div):
+        (NaN1):
+        (NaN2):
+        (NaN3):
+        (NaN4):
+        (NaN1NoInline):
+        (NaN2NoInline):
+        (NaN3NoInline):
+        (NaN4NoInline):
+        (test1):
+        (test2):
+        (test3):
+        (test4):
+        * stress/set-with-nan.js: Added.
+        (shouldBe):
+        (div):
+        (NaN1):
+        (NaN2):
+        (NaN3):
+        (NaN4):
+        (NaN1NoInline):
+        (NaN2NoInline):
+        (NaN3NoInline):
+        (NaN4NoInline):
+        (test2):
+        (test4):
+
+2019-04-26  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r244708.
+        https://bugs.webkit.org/show_bug.cgi?id=197334
+
+        "Broke the debug build" (Requested by rmorisset on #webkit).
+
+        Reverted changeset:
+
+        "All prototypes should call didBecomePrototype()"
+        https://bugs.webkit.org/show_bug.cgi?id=196315
+        https://trac.webkit.org/changeset/244708
+
+2019-04-25  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] linkPolymorphicCall now does GC
+        https://bugs.webkit.org/show_bug.cgi?id=197306
+
+        Reviewed by Saam Barati.
+
+        * stress/link-polymorphic-call-can-gc.js: Added.
+        (module):
+        (instance):
+
+2019-04-26  Robin Morisset  <rmorisset@apple.com>
+
+        All prototypes should call didBecomePrototype()
+        https://bugs.webkit.org/show_bug.cgi?id=196315
+
+        Reviewed by Saam Barati.
+
+        * stress/function-prototype-indexed-accessor.js: Added.
+
+2019-04-23  Saam Barati  <sbarati@apple.com>
+
+        LICM incorrectly assumes it'll never insert a node which provably OSR exits
+        https://bugs.webkit.org/show_bug.cgi?id=196721
+        <rdar://problem/49556479> 
+
+        Reviewed by Filip Pizlo.
+
+        * stress/licm-should-handle-if-a-hoist-causes-a-provable-osr-exit.js: Added.
+        (foo):
+
+2019-04-19  Saam Barati  <sbarati@apple.com>
+
+        AbstractValue can represent more than int52
+        https://bugs.webkit.org/show_bug.cgi?id=197118
+        <rdar://problem/49969960>
+
+        Reviewed by Michael Saboff.
+
+        * stress/abstract-value-can-include-int52.js: Added.
+        (foo):
+        (index.index.8.index.60.index.65.index.1234.index.1234.parseInt.string_appeared_here.String.fromCharCode):
+
+2019-04-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] StringBuilder should set correct m_is8Bit flag when merging
+        https://bugs.webkit.org/show_bug.cgi?id=197053
+
+        Reviewed by Saam Barati.
+
+        * stress/merge-string-builder-in-dfg.js: Added.
+        (foo):
+
+2019-04-16  Caitlin Potter  <caitp@igalia.com>
+
+        [JSC] Filter DontEnum properties in ProxyObject::getOwnPropertyNames()
+        https://bugs.webkit.org/show_bug.cgi?id=176810
+
+        Reviewed by Saam Barati.
+
+        Add tests for the DontEnum filtering, and variations of other tests
+        take the DontEnum-filtering path.
+
+        * stress/proxy-own-keys.js:
+        (i.catch):
+        (set assert):
+        (set add):
+        (let.set new):
+        (get let):
+
+2019-04-15  Saam barati  <sbarati@apple.com>
+
+        Modify how we do SetArgument when we inline varargs calls
+        https://bugs.webkit.org/show_bug.cgi?id=196712
+        <rdar://problem/49605012>
+
+        Reviewed by Michael Saboff.
+
+        * stress/get-stack-wrong-type-when-inline-varargs.js: Added.
+        (foo):
+
+2019-04-15  Saam barati  <sbarati@apple.com>
+
+        SafeToExecute for GetByOffset/GetGetterByOffset/PutByOffset is using the wrong child for the base
+        https://bugs.webkit.org/show_bug.cgi?id=196945
+        <rdar://problem/49802750>
+
+        Reviewed by Filip Pizlo.
+
+        * stress/get-by-offset-should-use-correct-child.js: Added.
+        (foo.bar):
+        (foo):
+
+2019-04-15  Robin Morisset  <rmorisset@apple.com>
+
+        DFG should be able to constant fold Object.create() with a constant prototype operand
+        https://bugs.webkit.org/show_bug.cgi?id=196886
+
+        Reviewed by Yusuke Suzuki.
+
+        Note that this new benchmark does not currently see a speedup with inlining removed.
+        The reason is that we do not yet have inline caching for Object.create(), we only optimize it when the DFG can see statically the prototype being passed.
+
+        * microbenchmarks/object-create-constant-prototype.js: Added.
+        (test):
+
+2019-04-15  Tadeu Zagallo  <tzagallo@apple.com>
+
+        Incremental bytecode cache should not append function updates when loaded from memory
+        https://bugs.webkit.org/show_bug.cgi?id=196865
+
+        Reviewed by Filip Pizlo.
+
+        * stress/bytecode-cache-shared-code-block.js: Added.
+        (b):
+        (program):
+
 2019-04-13  Tadeu Zagallo  <tzagallo@apple.com>
 
         CodeCache should check that the UnlinkedCodeBlock was successfully created before caching it

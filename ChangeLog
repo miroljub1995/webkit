@@ -1,3 +1,203 @@
+2019-04-30  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Support prefers-color-scheme media query
+        https://bugs.webkit.org/show_bug.cgi?id=196685
+
+        Reviewed by Michael Catanzaro.
+
+        Enable DARK_MODE_CSS. Supported color schemes feature is not supported for now. I'm not sure we will be able to
+        suport it, because it requires to change the theme too many times, which is very slow in GTK.
+
+        * Source/cmake/OptionsGTK.cmake:
+
+2019-04-29  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Add WEBKIT_EXECUTABLE macro
+        https://bugs.webkit.org/show_bug.cgi?id=197206
+
+        Unreviewed build fix.
+
+        Calls to add_dependencies were not happening.
+
+        * Source/cmake/WebKitMacros.cmake:
+
+2019-04-29  Basuke Suzuki  <Basuke.Suzuki@sony.com>
+
+        [Win] Add flag to enable version information stamping and disable by default.
+        https://bugs.webkit.org/show_bug.cgi?id=197249
+        <rdar://problem/50224412>
+
+        Reviewed by Ross Kirsling.
+
+        This feature is only used in AppleWin port. Add flag for this task and make it OFF by default.
+        Then enable it by default on AppleWin.
+
+        * Source/cmake/OptionsWin.cmake:
+
+2019-04-28  Andy Estes  <aestes@apple.com>
+
+        Fix the watchOS engineering build.
+
+        * Source/Makefile: Moved libwebrtc logic into Source/ThirdParty/Makefile.
+
+2019-04-26  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Add WEBKIT_EXECUTABLE macro
+        https://bugs.webkit.org/show_bug.cgi?id=197206
+
+        Reviewed by Konstantin Tokarev.
+
+        Add WEBKIT_EXECUTABLE macro for creating executable targets. This wraps the creation of
+        executable targets using the same conventions of WEBKIT_FRAMEWORK.
+
+        Common code from the two macros were moved to WEBKIT_TARGET which is meant as an internal
+        macro.
+
+        Add WEBKIT_WRAP_EXECUTABLE macro to support Windows targets which use a DLLLauncherMain to
+        launch the executable.
+
+        * Source/cmake/WebKitMacros.cmake:
+
+2019-04-25  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Unreviewed, rolling out r244669.
+
+        Windows ports can't clean build.
+
+        Reverted changeset:
+
+        "[Win] Add flag to enable version information stamping and
+        disable by default."
+        https://bugs.webkit.org/show_bug.cgi?id=197249
+        https://trac.webkit.org/changeset/244669
+
+2019-04-25  Basuke Suzuki  <Basuke.Suzuki@sony.com>
+
+        [Win] Add flag to enable version information stamping and disable by default.
+        https://bugs.webkit.org/show_bug.cgi?id=197249
+
+        Reviewed by Ross Kirsling.
+
+        This feature is only used in AppleWin port. Add flag for this task and make it OFF by default.
+        Then enable it by default on AppleWin.
+
+        * Source/cmake/OptionsWin.cmake:
+
+2019-04-25  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++17
+        https://bugs.webkit.org/show_bug.cgi?id=197131
+
+        Reviewed by Darin Adler.
+
+        * Source/cmake/OptionsMSVC.cmake:
+        * Source/cmake/WebKitCompilerFlags.cmake:
+
+2019-04-24  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Hardcoded text color in input fields
+        https://bugs.webkit.org/show_bug.cgi?id=126907
+
+        Reviewed by Michael Catanzaro.
+
+        Set and expose to build HAVE_OS_DARK_MODE_SUPPORT=1.
+
+        * Source/cmake/OptionsGTK.cmake:
+
+2019-04-23  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake][Win] Use target oriented design for WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=197173
+
+        Reviewed by Alex Christensen.
+
+        Override WebKit_DERIVED_SOUCES_DIR within WinCairo in support of a target
+        oriented design.
+
+        * Source/cmake/OptionsWinCairo.cmake:
+
+2019-04-20  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake][Win] Use target oriented design for WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=197112
+
+        Reviewed by Konstantin Tokarev.
+
+        Override WebKitLegacy_DERIVED_SOURCES_DIR within WinCairo in support of a target
+        oriented design.
+
+        * Source/cmake/OptionsWinCairo.cmake:
+
+2019-04-18  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [WinCairo] Non-unified build fails to link Tools
+        https://bugs.webkit.org/show_bug.cgi?id=196866
+
+        Reviewed by Fujii Hironori.
+
+        * Source/cmake/OptionsWin.cmake:
+        Build WebCore as an object library when unified builds are disabled
+        (and we haven't explicitly asked to build it as a shared library).
+        This is necessary for two reasons:
+        - Non-unified WebCore.lib is too large for the MSVC linker to create (>4GB).
+        - Some WebCore object files are not actually used, but DumpRenderTree and TestRunnerInjectedBundle
+          still expect that their symbols will be re-exported via WebKit[Legacy].
+
+2019-04-17  Jer Noble  <jer.noble@apple.com>
+
+        Automatically use ccache when available for Makefile builds
+        https://bugs.webkit.org/show_bug.cgi?id=197020
+
+        Reviewed by Alex Christensen.
+
+        * Makefile.shared:
+
+2019-04-16  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Set WTF_SCRIPTS_DIR
+        https://bugs.webkit.org/show_bug.cgi?id=196917
+
+        Reviewed by Konstantin Tokarev.
+
+        Define WTF_SCRIPTS_DIR in WebKitFS.cmake and use that within the WEBKIT_COMPUTE_SOURCES
+        macro. This allows it to be overridden by a port such as the AppleWin internal build.
+
+        * Source/cmake/OptionsAppleWin.cmake:
+        * Source/cmake/OptionsWinCairo.cmake:
+        * Source/cmake/WebKitFS.cmake:
+        * Source/cmake/WebKitMacros.cmake:
+
+2019-04-15  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] WebCore derived sources should only be referenced inside WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=196904
+
+        Reviewed by Konstantin Tokarev.
+
+        Override WebCore_DERIVED_SOURCES_DIR for WinCairo.
+
+        * Source/cmake/OptionsWinCairo.cmake:
+
+2019-04-14  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] JavaScriptCore derived sources should only be referenced inside JavaScriptCore
+        https://bugs.webkit.org/show_bug.cgi?id=196742
+
+        Reviewed by Konstantin Tokarev.
+
+        Migrate to using JavaScriptCore_DERIVED_SOURCES_DIR instead of DERIVED_SOURCES_JAVASCRIPTCORE_DIR
+        to support moving the JavaScriptCore derived sources outside of a shared directory.
+        This is in support of the target oriented design refactoring.
+
+        WinCairo is explicitly overriding the value as a canary for this setup.
+
+        Also move JavaScriptCore_SCRIPTS_DIR to WebKitFS to remove logic setting it in other projects.
+
+        * Source/PlatformWin.cmake:
+        * Source/cmake/OptionsAppleWin.cmake:
+        * Source/cmake/OptionsWinCairo.cmake:
+        * Source/cmake/WebKitFS.cmake:
+
 2019-04-10  Michael Catanzaro  <mcatanzaro@igalia.com>
 
         Unreviewed, rolling out r243989.

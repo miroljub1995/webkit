@@ -36,6 +36,7 @@
 #import "JSContextInternal.h"
 #import "JSInternalPromise.h"
 #import "JSInternalPromiseDeferred.h"
+#import "JSModuleLoader.h"
 #import "JSNativeStdFunction.h"
 #import "JSPromiseDeferred.h"
 #import "JSScriptInternal.h"
@@ -61,7 +62,7 @@ const GlobalObjectMethodTable JSAPIGlobalObject::s_globalObjectMethodTable = {
     &moduleLoaderResolve, // moduleLoaderResolve
     &moduleLoaderFetch, // moduleLoaderFetch
     &moduleLoaderCreateImportMetaProperties, // moduleLoaderCreateImportMetaProperties
-    nullptr, // moduleLoaderEvaluate
+    moduleLoaderEvaluate, // moduleLoaderEvaluate
     nullptr, // promiseRejectionTracker
     nullptr, // defaultLanguage
     nullptr, // compileStreaming
@@ -194,18 +195,10 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalOb
         if (UNLIKELY([jsScript type] != kJSScriptTypeModule))
             return rejectPromise("The JSScript that was provided did not have expected type of kJSScriptTypeModule."_s);
 
-        // FIXME: The SPI we're deprecating did not require sourceURL, so we just
-        // ignore this check for such use cases until we can remove that SPI. Once
-        // we do that, we can remove the null check for sourceURL:
-        // https://bugs.webkit.org/show_bug.cgi?id=194909
-        if (NSURL *sourceURL = [jsScript sourceURL]) {
-            String oldModuleKey { [sourceURL absoluteString] };
-            if (UNLIKELY(Identifier::fromString(&vm, oldModuleKey) != moduleKey))
-                return rejectPromise(makeString("The same JSScript was provided for two different identifiers, previously: ", oldModuleKey, " and now: ", moduleKey.string()));
-        } else {
-            [jsScript setSourceURL:[NSURL URLWithString:static_cast<NSString *>(moduleKey.string())]];
-            source = [jsScript jsSourceCode];
-        }
+        NSURL *sourceURL = [jsScript sourceURL];
+        String oldModuleKey { [sourceURL absoluteString] };
+        if (UNLIKELY(Identifier::fromString(&vm, oldModuleKey) != moduleKey))
+            return rejectPromise(makeString("The same JSScript was provided for two different identifiers, previously: ", oldModuleKey, " and now: ", moduleKey.string()));
 
         args.append(source);
         call(exec, deferredPromise->JSPromiseDeferred::resolve(), args, "This should never be seen...");
@@ -240,6 +233,33 @@ JSObject* JSAPIGlobalObject::moduleLoaderCreateImportMetaProperties(JSGlobalObje
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     return metaProperties;
+}
+
+JSValue JSAPIGlobalObject::moduleLoaderEvaluate(JSGlobalObject* globalObject, ExecState* exec, JSModuleLoader* moduleLoader, JSValue key, JSValue moduleRecordValue, JSValue scriptFetcher)
+{
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSContext *context = [JSContext contextWithJSGlobalContextRef:toGlobalRef(globalObject->globalExec())];
+    id <JSModuleLoaderDelegate> moduleLoaderDelegate = [context moduleLoaderDelegate];
+    NSURL *url = nil;
+
+    if ([moduleLoaderDelegate respondsToSelector:@selector(willEvaluateModule:)] || [moduleLoaderDelegate respondsToSelector:@selector(didEvaluateModule:)]) {
+        String moduleKey = key.toWTFString(exec);
+        RETURN_IF_EXCEPTION(scope, { });
+        url = [NSURL URLWithString:static_cast<NSString *>(moduleKey)];
+    }
+
+    if ([moduleLoaderDelegate respondsToSelector:@selector(willEvaluateModule:)])
+        [moduleLoaderDelegate willEvaluateModule:url];
+
+    scope.release();
+    JSValue result = moduleLoader->evaluateNonVirtual(exec, key, moduleRecordValue, scriptFetcher);
+
+    if ([moduleLoaderDelegate respondsToSelector:@selector(didEvaluateModule:)])
+        [moduleLoaderDelegate didEvaluateModule:url];
+
+    return result;
 }
 
 JSValue JSAPIGlobalObject::loadAndEvaluateJSScriptModule(const JSLockHolder&, JSScript *script)

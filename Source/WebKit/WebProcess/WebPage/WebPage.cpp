@@ -163,6 +163,7 @@
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/FullscreenManager.h>
 #include <WebCore/GraphicsContext3D.h>
 #include <WebCore/HTMLAttachmentElement.h>
 #include <WebCore/HTMLFormElement.h>
@@ -497,6 +498,8 @@ WebPage::WebPage(uint64_t pageID, WebPageCreationParameters&& parameters)
 
     updatePreferences(parameters.store);
 
+    m_backgroundColor = parameters.backgroundColor;
+
     m_drawingArea = DrawingArea::create(*this, parameters);
     m_drawingArea->setPaintingEnabled(false);
     m_drawingArea->setShouldScaleViewToFitDocument(parameters.shouldScaleViewToFitDocument);
@@ -670,8 +673,6 @@ WebPage::WebPage(uint64_t pageID, WebPageCreationParameters&& parameters)
 #if USE(AUDIO_SESSION)
     PlatformMediaSessionManager::setShouldDeactivateAudioSession(true);
 #endif
-
-    setBackgroundColor(parameters.backgroundColor);
 }
 
 #if ENABLE(WEB_RTC)
@@ -1124,17 +1125,37 @@ void WebPage::updateEditorStateAfterLayoutIfEditabilityChanged()
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     EditorStateIsContentEditable editorStateIsContentEditable = frame.selection().selection().isContentEditable() ? EditorStateIsContentEditable::Yes : EditorStateIsContentEditable::No;
     if (m_lastEditorStateWasContentEditable != editorStateIsContentEditable)
-        sendPartialEditorStateAndSchedulePostLayoutUpdate();
+        scheduleFullEditorStateUpdate();
 }
 
-String WebPage::renderTreeExternalRepresentation() const
+static OptionSet<RenderAsTextFlag> toRenderAsTextFlags(unsigned options)
 {
-    return externalRepresentation(m_mainFrame->coreFrame(), RenderAsTextBehaviorNormal);
+    OptionSet<RenderAsTextFlag> flags;
+
+    if (options & RenderTreeShowAllLayers)
+        flags.add(RenderAsTextFlag::ShowAllLayers);
+    if (options & RenderTreeShowLayerNesting)
+        flags.add(RenderAsTextFlag::ShowLayerNesting);
+    if (options & RenderTreeShowCompositedLayers)
+        flags.add(RenderAsTextFlag::ShowCompositedLayers);
+    if (options & RenderTreeShowOverflow)
+        flags.add(RenderAsTextFlag::ShowOverflow);
+    if (options & RenderTreeShowSVGGeometry)
+        flags.add(RenderAsTextFlag::ShowSVGGeometry);
+    if (options & RenderTreeShowLayerFragments)
+        flags.add(RenderAsTextFlag::ShowLayerFragments);
+
+    return flags;
+}
+
+String WebPage::renderTreeExternalRepresentation(unsigned options) const
+{
+    return externalRepresentation(m_mainFrame->coreFrame(), toRenderAsTextFlags(options));
 }
 
 String WebPage::renderTreeExternalRepresentationForPrinting() const
 {
-    return externalRepresentation(m_mainFrame->coreFrame(), RenderAsTextPrintingMode);
+    return externalRepresentation(m_mainFrame->coreFrame(), { RenderAsTextFlag::PrintingMode });
 }
 
 uint64_t WebPage::renderTreeSize() const
@@ -1540,7 +1561,7 @@ void WebPage::navigateToPDFLinkWithSimulatedClick(const String& url, IntPoint do
     auto mouseEvent = MouseEvent::create(eventNames().clickEvent, Event::CanBubble::Yes, Event::IsCancelable::Yes, Event::IsComposed::Yes,
         MonotonicTime::now(), nullptr, singleClick, screenPoint, documentPoint, { }, { }, 0, 0, nullptr, 0, WebCore::NoTap, nullptr);
 
-    mainFrame->loader().urlSelected(mainFrameDocument->completeURL(url), emptyString(), mouseEvent.ptr(), LockHistory::No, LockBackForwardList::No, ShouldSendReferrer::MaybeSendReferrer, ShouldOpenExternalURLsPolicy::ShouldNotAllow);
+    mainFrame->loader().urlSelected(mainFrameDocument->completeURL(url), emptyString(), mouseEvent.ptr(), LockHistory::No, LockBackForwardList::No, ShouldSendReferrer::NeverSendReferrer, ShouldOpenExternalURLsPolicy::ShouldNotAllow);
 }
 
 void WebPage::stopLoadingFrame(uint64_t frameID)
@@ -1996,13 +2017,6 @@ void WebPage::accessibilitySettingsDidChange()
 {
     m_page->accessibilitySettingsDidChange();
 }
-
-#if ENABLE(ACCESSIBILITY_EVENTS)
-void WebPage::updateAccessibilityEventsEnabled(bool enabled)
-{
-    m_page->settings().setAccessibilityEventsEnabled(enabled);
-}
-#endif
 
 void WebPage::setUseFixedLayout(bool fixed)
 {
@@ -2460,16 +2474,16 @@ const WebEvent* WebPage::currentEvent()
 void WebPage::freezeLayerTree(LayerTreeFreezeReason reason)
 {
     RELEASE_LOG(ProcessSuspension, "%p - WebPage (PageID=%llu) - Adding a reason %d to freeze layer tree; current reasons are %d",
-        this, m_pageID, static_cast<unsigned>(reason), m_LayerTreeFreezeReasons.toRaw());
-    m_LayerTreeFreezeReasons.add(reason);
+        this, m_pageID, static_cast<unsigned>(reason), m_layerTreeFreezeReasons.toRaw());
+    m_layerTreeFreezeReasons.add(reason);
     updateDrawingAreaLayerTreeFreezeState();
 }
 
 void WebPage::unfreezeLayerTree(LayerTreeFreezeReason reason)
 {
     RELEASE_LOG(ProcessSuspension, "%p - WebPage (PageID=%llu) - Removing a reason %d to freeze layer tree; current reasons are %d",
-        this, m_pageID, static_cast<unsigned>(reason), m_LayerTreeFreezeReasons.toRaw());
-    m_LayerTreeFreezeReasons.remove(reason);
+        this, m_pageID, static_cast<unsigned>(reason), m_layerTreeFreezeReasons.toRaw());
+    m_layerTreeFreezeReasons.remove(reason);
     updateDrawingAreaLayerTreeFreezeState();
 }
 
@@ -2477,7 +2491,7 @@ void WebPage::updateDrawingAreaLayerTreeFreezeState()
 {
     if (!m_drawingArea)
         return;
-    m_drawingArea->setLayerTreeStateIsFrozen(!!m_LayerTreeFreezeReasons);
+    m_drawingArea->setLayerTreeStateIsFrozen(!!m_layerTreeFreezeReasons);
 }
 
 void WebPage::callVolatilityCompletionHandlers(bool succeeded)
@@ -2763,7 +2777,7 @@ void WebPage::setNeedsFontAttributes(bool needsFontAttributes)
     m_needsFontAttributes = needsFontAttributes;
 
     if (m_needsFontAttributes)
-        sendPartialEditorStateAndSchedulePostLayoutUpdate();
+        scheduleFullEditorStateUpdate();
 }
 
 void WebPage::restoreSessionInternal(const Vector<BackForwardListItemState>& itemStates, WasRestoredByAPIRequest restoredByAPIRequest, WebBackForwardListProxy::OverwriteExistingItem overwrite)
@@ -3129,7 +3143,7 @@ void WebPage::setActivityState(OptionSet<ActivityState::Flag> activityState, Act
 
     ASSERT_WITH_MESSAGE(m_page, "setActivityState called on %" PRIu64 " but WebCore page was null", pageID());
     if (m_page) {
-        SetForScope<bool> currentlyChangingActivityState { m_changingActivityState, true };
+        SetForScope<OptionSet<ActivityState::Flag>> currentlyChangingActivityState { m_lastActivityStateChanges, changed };
         m_page->setActivityState(activityState);
     }
     
@@ -4596,10 +4610,12 @@ void WebPage::setUseSystemAppearance(bool useSystemAppearance)
 
 #endif
 
+#if !PLATFORM(GTK)
 void WebPage::setUseDarkAppearance(bool useDarkAppearance)
 {
     corePage()->setUseDarkAppearance(useDarkAppearance);
 }
+#endif
 
 void WebPage::beginPrinting(uint64_t frameID, const PrintInfo& printInfo)
 {
@@ -5284,7 +5300,17 @@ void WebPage::didChangeContents()
     sendEditorStateUpdate();
 }
 
+void WebPage::didChangeOverflowScrollPosition()
+{
+    didChangeSelectionOrOverflowScrollPosition();
+}
+
 void WebPage::didChangeSelection()
+{
+    didChangeSelectionOrOverflowScrollPosition();
+}
+
+void WebPage::didChangeSelectionOrOverflowScrollPosition()
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     // The act of getting Dictionary Popup info can make selection changes that we should not propagate to the UIProcess.
@@ -5327,7 +5353,7 @@ void WebPage::didChangeSelection()
     }
 #endif
 
-    sendPartialEditorStateAndSchedulePostLayoutUpdate();
+    scheduleFullEditorStateUpdate();
 }
 
 void WebPage::resetFocusedElementForFrame(WebFrame* frame)
@@ -5384,8 +5410,8 @@ void WebPage::elementDidFocus(WebCore::Element& element)
 #if PLATFORM(IOS_FAMILY)
 
 #if ENABLE(FULLSCREEN_API)
-        if (element.document().webkitIsFullScreen())
-            element.document().webkitCancelFullScreen();
+        if (element.document().fullscreenManager().isFullscreen())
+            element.document().fullscreenManager().cancelFullscreen();
 #endif
 
         ++m_currentFocusedElementIdentifier;
@@ -5395,7 +5421,7 @@ void WebPage::elementDidFocus(WebCore::Element& element)
 
         m_formClient->willBeginInputSession(this, &element, WebFrame::fromCoreFrame(*element.document().frame()), m_userIsInteracting, userData);
 
-        send(Messages::WebPageProxy::ElementDidFocus(information, m_userIsInteracting, m_recentlyBlurredElement, m_changingActivityState, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+        send(Messages::WebPageProxy::ElementDidFocus(information, m_userIsInteracting, m_recentlyBlurredElement, m_lastActivityStateChanges, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 #elif PLATFORM(MAC)
         // FIXME: This can be unified with the iOS code above by bringing ElementDidFocus to macOS.
         // This also doesn't take other noneditable controls into account, such as input type color.
@@ -6010,16 +6036,6 @@ void WebPage::sendTouchBarMenuItemDataRemovedUpdate(HTMLMenuItemElement& element
 }
 #endif
 
-void WebPage::sendPartialEditorStateAndSchedulePostLayoutUpdate()
-{
-    Frame& frame = m_page->focusController().focusedOrMainFrame();
-    if (frame.editor().ignoreSelectionChanges())
-        return;
-
-    send(Messages::WebPageProxy::EditorStateChanged(editorState(IncludePostLayoutDataHint::No)), pageID());
-    scheduleFullEditorStateUpdate();
-}
-
 void WebPage::flushPendingEditorStateUpdate()
 {
     if (!m_hasPendingEditorStateUpdate)
@@ -6216,6 +6232,19 @@ void WebPage::removeAllUserContent()
     m_userContentController->removeAllUserContent();
 }
 
+void WebPage::updateIntrinsicContentSizeIfNeeded(const WebCore::IntSize& size)
+{
+    if (!viewLayoutSize().width())
+        return;
+    ASSERT(mainFrameView());
+    ASSERT(mainFrameView()->isAutoSizeEnabled());
+    ASSERT(!mainFrameView()->needsLayout());
+    if (m_lastSentIntrinsicContentSize == size)
+        return;
+    m_lastSentIntrinsicContentSize = size;
+    send(Messages::WebPageProxy::DidChangeIntrinsicContentSize(size));
+}
+
 void WebPage::dispatchDidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone> milestones)
 {
     RefPtr<API::Object> userData;
@@ -6225,8 +6254,16 @@ void WebPage::dispatchDidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone
     ASSERT(!userData);
 
     // The drawing area might want to defer dispatch of didLayout to the UI process.
-    if (m_drawingArea && m_drawingArea->dispatchDidReachLayoutMilestone(milestones))
-        return;
+    if (m_drawingArea) {
+        static auto paintMilestones = OptionSet<WebCore::LayoutMilestone> { DidHitRelevantRepaintedObjectsAreaThreshold, DidFirstFlushForHeaderLayer, DidFirstPaintAfterSuppressedIncrementalRendering, DidRenderSignificantAmountOfText, DidFirstMeaningfulPaint };   
+        auto drawingAreaRelatedMilestones = milestones & paintMilestones;
+        if (drawingAreaRelatedMilestones && m_drawingArea->addMilestonesToDispatch(drawingAreaRelatedMilestones))
+            milestones.remove(drawingAreaRelatedMilestones);
+    }
+    if (milestones.contains(DidFirstLayout) && mainFrameView()) {
+        // Ensure we never send DidFirstLayout milestone without updating the intrinsic size.
+        updateIntrinsicContentSizeIfNeeded(mainFrameView()->autoSizingIntrinsicContentSize());
+    }
 
     send(Messages::WebPageProxy::DidReachLayoutMilestone(milestones));
 }
@@ -6399,9 +6436,9 @@ void WebPage::requestStorageAccess(String&& subFrameHost, String&& topFrameHost,
 #endif
 
 #if ENABLE(DEVICE_ORIENTATION)
-void WebPage::shouldAllowDeviceOrientationAndMotionAccess(uint64_t frameID, WebCore::SecurityOriginData&& origin, CompletionHandler<void(bool)>&& completionHandler)
+void WebPage::shouldAllowDeviceOrientationAndMotionAccess(uint64_t frameID, WebCore::SecurityOriginData&& origin, bool mayPrompt, CompletionHandler<void(DeviceOrientationOrMotionPermissionState)>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::WebPageProxy::RequestDeviceOrientationAndMotionAccess(frameID, WTFMove(origin)), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::WebPageProxy::ShouldAllowDeviceOrientationAndMotionAccess(frameID, WTFMove(origin), mayPrompt), WTFMove(completionHandler));
 }
 #endif
     

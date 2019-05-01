@@ -187,6 +187,12 @@ typedef void (*WKPageDumpAdClickAttributionFunction)(WKStringRef adClickAttribut
 WK_EXPORT void WKPageDumpAdClickAttribution(WKPageRef, WKPageDumpAdClickAttributionFunction, void* callbackContext);
 typedef void (*WKPageClearAdClickAttributionFunction)(void* functionContext);
 WK_EXPORT void WKPageClearAdClickAttribution(WKPageRef, WKPageClearAdClickAttributionFunction, void* callbackContext);
+typedef void (*WKPageSetAdClickAttributionOverrideTimerForTestingFunction)(void* functionContext);
+WK_EXPORT void WKPageSetAdClickAttributionOverrideTimerForTesting(WKPageRef page, bool value, WKPageSetAdClickAttributionOverrideTimerForTestingFunction callback, void* callbackContext);
+typedef void (*WKPageSetAdClickAttributionConversionURLForTestingFunction)(void* functionContext);
+WK_EXPORT void WKPageSetAdClickAttributionConversionURLForTesting(WKPageRef page, WKURLRef urlString, WKPageSetAdClickAttributionConversionURLForTestingFunction callback, void* callbackContext);
+typedef void (*WKPageMarkAdClickAttributionsAsExpiredForTestingFunction)(void* functionContext);
+WK_EXPORT void WKPageMarkAdClickAttributionsAsExpiredForTesting(WKPageRef page, WKPageMarkAdClickAttributionsAsExpiredForTestingFunction callback, void* callbackContext);
 
 #ifdef __cplusplus
 }

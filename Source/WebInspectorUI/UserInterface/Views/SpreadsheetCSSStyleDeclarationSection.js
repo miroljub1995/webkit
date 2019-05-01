@@ -391,6 +391,9 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
 
     _handleMouseDown(event)
     {
+        if (event.button !== 0)
+            return;
+
         this._wasEditing = this._propertiesEditor.editing || document.activeElement === this._selectorElement;
 
         let propertyElement = event.target.closest(".property");
@@ -493,13 +496,18 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
 
     _highlightNodesWithSelector()
     {
+        let node = this._style.node;
+
         if (!this._style.ownerRule) {
-            WI.domManager.highlightDOMNode(this._style.node.id);
+            WI.domManager.highlightDOMNode(node.id);
             return;
         }
 
         let selectorText = this._selectorElement.textContent.trim();
-        WI.domManager.highlightSelector(selectorText, this._style.node.ownerDocument.frameIdentifier);
+        if (node.frame)
+            WI.domManager.highlightSelector(selectorText, node.frame.id);
+        else
+            WI.domManager.highlightSelector(selectorText);
     }
 
     _hideDOMNodeHighlight()

@@ -36,6 +36,7 @@
 #include "WKRetainPtr.h"
 #include "WKSecurityOriginRef.h"
 #include "WKString.h"
+#include "WebDeviceOrientationAndMotionAccessController.h"
 #include "WebResourceLoadStatisticsStore.h"
 #include "WebsiteData.h"
 #include "WebsiteDataFetchOption.h"
@@ -578,6 +579,13 @@ void WKWebsiteDataStoreSetPerOriginStorageQuota(WKWebsiteDataStoreRef dataStoreR
     WebKit::toImpl(dataStoreRef)->websiteDataStore().setPerOriginStorageQuota(quota);
 }
 
+void WKWebsiteDataStoreClearAllDeviceOrientationPermissions(WKWebsiteDataStoreRef dataStoreRef)
+{
+#if ENABLE(DEVICE_ORIENTATION)
+    WebKit::toImpl(dataStoreRef)->websiteDataStore().deviceOrientationAndMotionAccessController().clearPermissions();
+#endif
+}
+
 void WKWebsiteDataStoreSetWebAuthenticationMockConfiguration(WKWebsiteDataStoreRef dataStoreRef, WKDictionaryRef configurationRef)
 {
 #if ENABLE(WEB_AUTHN)
@@ -650,3 +658,12 @@ void WKWebsiteDataStoreSetWebAuthenticationMockConfiguration(WKWebsiteDataStoreR
     WebKit::toImpl(dataStoreRef)->websiteDataStore().setMockWebAuthenticationConfiguration(WTFMove(configuration));
 #endif
 }
+
+void WKWebsiteDataStoreClearAdClickAttributionsThroughWebsiteDataRemoval(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearAdClickAttributionsThroughWebsiteDataRemovalFunction callback)
+{
+    OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::AdClickAttributions;
+    WebKit::toImpl(dataStoreRef)->websiteDataStore().removeData(dataTypes, WallTime::fromRawSeconds(0), [context, callback] {
+        callback(context);
+    });
+}
+

@@ -56,6 +56,7 @@
 #include "DOMStringList.h"
 #include "DOMWindow.h"
 #include "DeprecatedGlobalSettings.h"
+#include "DiagnosticLoggingClient.h"
 #include "DisabledAdaptations.h"
 #include "DisplayList.h"
 #include "Document.h"
@@ -74,6 +75,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "FullscreenManager.h"
 #include "GCObservation.h"
 #include "GridPosition.h"
 #include "HEVCUtilities.h"
@@ -106,6 +108,7 @@
 #include "LibWebRTCProvider.h"
 #include "LoaderStrategy.h"
 #include "MallocStatistics.h"
+#include "MediaDevices.h"
 #include "MediaEngineConfigurationFactory.h"
 #include "MediaPlayer.h"
 #include "MediaProducer.h"
@@ -116,6 +119,7 @@
 #include "MockLibWebRTCPeerConnection.h"
 #include "MockPageOverlay.h"
 #include "MockPageOverlayClient.h"
+#include "NavigatorMediaDevices.h"
 #include "NetworkLoadInformation.h"
 #include "Page.h"
 #include "PageCache.h"
@@ -450,7 +454,7 @@ void Internals::resetToConsistentState(Page& page)
 
     page.mainFrame().setTextZoomFactor(1.0f);
 
-    page.setCompositingPolicyOverride(WTF::nullopt);
+    page.setCompositingPolicyOverride(WebCore::CompositingPolicy::Normal);
 
     FrameView* mainFrameView = page.mainFrame().view();
     if (mainFrameView) {
@@ -3002,7 +3006,7 @@ void Internals::webkitWillEnterFullScreenForElement(Element& element)
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitWillEnterFullScreen(element);
+    document->fullscreenManager().willEnterFullscreen(element);
 }
 
 void Internals::webkitDidEnterFullScreenForElement(Element&)
@@ -3010,7 +3014,7 @@ void Internals::webkitDidEnterFullScreenForElement(Element&)
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitDidEnterFullScreen();
+    document->fullscreenManager().didEnterFullscreen();
 }
 
 void Internals::webkitWillExitFullScreenForElement(Element&)
@@ -3018,7 +3022,7 @@ void Internals::webkitWillExitFullScreenForElement(Element&)
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitWillExitFullScreen();
+    document->fullscreenManager().willExitFullscreen();
 }
 
 void Internals::webkitDidExitFullScreenForElement(Element&)
@@ -3026,7 +3030,7 @@ void Internals::webkitDidExitFullScreenForElement(Element&)
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitDidExitFullScreen();
+    document->fullscreenManager().didExitFullscreen();
 }
 
 bool Internals::isAnimatingFullScreen() const
@@ -3034,7 +3038,7 @@ bool Internals::isAnimatingFullScreen() const
     Document* document = contextDocument();
     if (!document)
         return false;
-    return document->isAnimatingFullScreen();
+    return document->fullscreenManager().isAnimatingFullscreen();
 }
 
 #endif
@@ -4703,6 +4707,15 @@ void Internals::setMediaStreamSourceInterrupted(MediaStreamTrack& track, bool in
     track.source().setInterruptedForTesting(interrupted);
 }
 
+void Internals::setDisableGetDisplayMediaUserGestureConstraint(bool value)
+{
+    Document* document = contextDocument();
+    if (!document || !document->domWindow())
+        return;
+
+    if (auto* mediaDevices = NavigatorMediaDevices::mediaDevices(document->domWindow()->navigator()))
+        mediaDevices->setDisableGetDisplayMediaUserGestureConstraint(value);
+}
 #endif
 
 String Internals::audioSessionCategory() const
@@ -4997,6 +5010,26 @@ void Internals::processWillSuspend()
 void Internals::processDidResume()
 {
     PlatformMediaSessionManager::sharedManager().processDidResume();
+}
+
+void Internals::testDictionaryLogging()
+{
+    auto* document = contextDocument();
+    if (!document)
+        return;
+
+    auto* page = document->page();
+    if (!page)
+        return;
+
+    DiagnosticLoggingClient::ValueDictionary dictionary;
+    dictionary.set("stringKey"_s, String("stringValue"));
+    dictionary.set("uint64Key"_s, std::numeric_limits<uint64_t>::max());
+    dictionary.set("int64Key"_s, std::numeric_limits<int64_t>::min());
+    dictionary.set("boolKey"_s, true);
+    dictionary.set("doubleKey"_s, 2.7182818284590452353602874);
+
+    page->diagnosticLoggingClient().logDiagnosticMessageWithValueDictionary("testMessage"_s, "testDescription"_s, dictionary, ShouldSample::No);
 }
 
 } // namespace WebCore

@@ -42,6 +42,7 @@
 #import "PrintInfo.h"
 #import "RemoteLayerTreeDrawingArea.h"
 #import "SandboxUtilities.h"
+#import "TextCheckingControllerProxy.h"
 #import "UIKitSPI.h"
 #import "UserData.h"
 #import "ViewGestureGeometryCollector.h"
@@ -106,6 +107,7 @@
 #import <WebCore/Pasteboard.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/PlatformMouseEvent.h>
+#import <WebCore/Quirks.h>
 #import <WebCore/RenderBlock.h>
 #import <WebCore/RenderImage.h>
 #import <WebCore/RenderThemeIOS.h>
@@ -214,7 +216,7 @@ void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePost
 #if !PLATFORM(IOSMAC)
     requiresPostLayoutData |= m_keyboardIsAttached;
 #endif
-    if (shouldIncludePostLayoutData == IncludePostLayoutDataHint::No && needsLayout && !requiresPostLayoutData) {
+    if ((shouldIncludePostLayoutData == IncludePostLayoutDataHint::No || needsLayout) && !requiresPostLayoutData) {
         result.isMissingPostLayoutData = true;
         return;
     }
@@ -566,6 +568,18 @@ static void dispatchSyntheticMouseMove(Frame& mainFrame, const WebCore::FloatPoi
     mainFrame.eventHandler().dispatchSyntheticMouseMove(mouseEvent);
 }
 
+static bool nodeAlwaysTriggersClick(const Node& targetNode)
+{
+    if (!is<Element>(targetNode))
+        return false;
+
+    if (is<HTMLFormControlElement>(targetNode))
+        return true;
+
+    auto ariaRole = AccessibilityObject::ariaRoleToWebCoreRole(downcast<Element>(targetNode).getAttribute(HTMLNames::roleAttr));
+    return AccessibilityObject::isARIAControl(ariaRole) || AccessibilityObject::isARIAInput(ariaRole);
+}
+
 void WebPage::handleSyntheticClick(Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebEvent::Modifier> modifiers)
 {
     if (!nodeRespondingToClick.document().settings().contentChangeObserverEnabled()) {
@@ -587,8 +601,9 @@ void WebPage::handleSyntheticClick(Node& nodeRespondingToClick, const WebCore::F
 
     auto& contentChangeObserver = respondingDocument.contentChangeObserver();
     auto observedContentChange = contentChangeObserver.observedContentChange();
+    auto targetNodeTriggersClick = nodeAlwaysTriggersClick(nodeRespondingToClick);
 
-    auto continueContentObservation = !(observedContentChange == WKContentVisibilityChange || is<HTMLFormControlElement>(nodeRespondingToClick));
+    auto continueContentObservation = !(observedContentChange == WKContentVisibilityChange || targetNodeTriggersClick);
     if (continueContentObservation) {
         // Wait for callback to completePendingSyntheticClickForContentChangeObserver() to decide whether to send the click event.
         const Seconds observationDuration = 32_ms;
@@ -600,11 +615,12 @@ void WebPage::handleSyntheticClick(Node& nodeRespondingToClick, const WebCore::F
         return;
     }
 
-    callOnMainThread([protectedThis = makeRefPtr(this), targetNode = Ref<Node>(nodeRespondingToClick), location, modifiers, observedContentChange] {
+    callOnMainThread([protectedThis = makeRefPtr(this), targetNode = Ref<Node>(nodeRespondingToClick), location, modifiers, observedContentChange, targetNodeTriggersClick] {
         if (protectedThis->m_isClosed || !protectedThis->corePage())
             return;
 
-        if (observedContentChange == WKContentVisibilityChange) {
+        auto shouldStayAtHoverState = observedContentChange == WKContentVisibilityChange && !targetNodeTriggersClick;
+        if (shouldStayAtHoverState) {
             // The move event caused new contents to appear. Don't send synthetic click event, but just ensure that the mouse is on the most recent content.
             dispatchSyntheticMouseMove(protectedThis->corePage()->mainFrame(), location, modifiers);
             LOG(ContentObservation, "handleSyntheticClick: Observed meaningful visible change -> hover.");
@@ -673,8 +689,10 @@ void WebPage::completeSyntheticClick(Node& nodeRespondingToClick, const WebCore:
     if (newFocusedElement && newFocusedElement == oldFocusedElement)
         elementDidRefocus(*newFocusedElement);
 
-    if (nodeRespondingToClick.document().frame())
+    // Only send a synthetic mouse out event if synthetic mouse move events were sent; this is true when ContentChangeObserver is enabled.
+    if (nodeRespondingToClick.document().settings().contentChangeObserverEnabled() && !tapWasHandled && nodeRespondingToClick.document().frame())
         nodeRespondingToClick.document().frame()->eventHandler().dispatchSyntheticMouseOut(PlatformMouseEvent(roundedAdjustedPoint, roundedAdjustedPoint, LeftButton, PlatformEvent::NoType, 0, shiftKey, ctrlKey, altKey, metaKey, WallTime::now(), 0, WebCore::NoTap));
+
     if (m_isClosed)
         return;
 
@@ -702,6 +720,28 @@ void WebPage::handleTap(const IntPoint& point, OptionSet<WebEvent::Modifier> mod
 #endif
     else
         handleSyntheticClick(*nodeRespondingToClick, adjustedPoint, modifiers);
+}
+
+void WebPage::handleDoubleTapForDoubleClickAtPoint(const IntPoint& point, OptionSet<WebEvent::Modifier> modifiers, uint64_t lastLayerTreeTransactionId)
+{
+    FloatPoint adjustedPoint;
+    auto* nodeRespondingToDoubleClick = m_page->mainFrame().nodeRespondingToDoubleClickEvent(point, adjustedPoint);
+    if (!nodeRespondingToDoubleClick)
+        return;
+
+    auto* frameRespondingToDoubleClick = nodeRespondingToDoubleClick->document().frame();
+    if (!frameRespondingToDoubleClick || lastLayerTreeTransactionId < WebFrame::fromCoreFrame(*frameRespondingToDoubleClick)->firstLayerTreeTransactionIDAfterDidCommitLoad())
+        return;
+
+    bool shiftKey = modifiers.contains(WebEvent::Modifier::ShiftKey);
+    bool ctrlKey = modifiers.contains(WebEvent::Modifier::ControlKey);
+    bool altKey = modifiers.contains(WebEvent::Modifier::AltKey);
+    bool metaKey = modifiers.contains(WebEvent::Modifier::MetaKey);
+    auto roundedAdjustedPoint = roundedIntPoint(adjustedPoint);
+    nodeRespondingToDoubleClick->document().frame()->eventHandler().handleMousePressEvent(PlatformMouseEvent(roundedAdjustedPoint, roundedAdjustedPoint, LeftButton, PlatformEvent::MousePressed, 2, shiftKey, ctrlKey, altKey, metaKey, WallTime::now(), 0, WebCore::NoTap));
+    if (m_isClosed)
+        return;
+    nodeRespondingToDoubleClick->document().frame()->eventHandler().handleMouseReleaseEvent(PlatformMouseEvent(roundedAdjustedPoint, roundedAdjustedPoint, LeftButton, PlatformEvent::MouseReleased, 2, shiftKey, ctrlKey, altKey, metaKey, WallTime::now(), 0, WebCore::NoTap));
 }
 
 void WebPage::requestFocusedElementInformation(WebKit::CallbackID callbackID)
@@ -2165,8 +2205,7 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
     String markedText;
     String selectedText;
     String contextAfter;
-    uint64_t location = NSNotFound;
-    uint64_t length = 0;
+    EditingRange markedTextRange;
 
     auto& frame = m_page->focusController().focusedOrMainFrame();
     RefPtr<Range> range;
@@ -2190,8 +2229,8 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
             markedTextAfter = plainTextReplacingNoBreakSpace(range.get());
         markedText = markedTextBefore + selectedText + markedTextAfter;
         if (!markedText.isEmpty()) {
-            location = markedTextBefore.length();
-            length = selectedText.length();
+            markedTextRange.location = markedTextBefore.length();
+            markedTextRange.length = selectedText.length();
         }
     } else {
         if (startPosition != startOfEditableContent(startPosition)) {
@@ -2225,7 +2264,14 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
                 contextAfter = plainTextReplacingNoBreakSpace(Range::create(*frame.document(), endPosition, nextPosition).ptr());
         }
     }
-    return { WTFMove(contextBefore), WTFMove(markedText), WTFMove(selectedText), WTFMove(contextAfter), location, length };
+
+    WebAutocorrectionContext correction;
+    correction.contextBefore = WTFMove(contextBefore);
+    correction.markedText = WTFMove(markedText);
+    correction.selectedText = WTFMove(selectedText);
+    correction.contextAfter = WTFMove(contextAfter);
+    correction.markedTextRange = WTFMove(markedTextRange);
+    return correction;
 }
 
 void WebPage::requestAutocorrectionContext()
@@ -2718,6 +2764,11 @@ void WebPage::getFocusedElementInformation(FocusedElementInformation& informatio
         }
         information.isReadOnly = false;
     }
+
+    if (m_focusedElement->document().quirks().shouldSuppressAutocorrectionAndAutocaptializationInHiddenEditableAreas() && m_focusedElement->renderer() && enclosingLayerIsTransparentOrFullyClipped(*m_focusedElement->renderer())) {
+        information.autocapitalizeType = AutocapitalizeTypeNone;
+        information.isAutocorrect = false;
+    }
 }
 
 void WebPage::autofillLoginCredentials(const String& username, const String& password)
@@ -2822,7 +2873,8 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
     }
 
     LOG_WITH_STREAM(VisibleRects, stream << "WebPage::dynamicViewportSizeUpdate setting view layout size to " << viewLayoutSize);
-    m_viewportConfiguration.setViewLayoutSize(viewLayoutSize);
+    if (m_viewportConfiguration.setViewLayoutSize(viewLayoutSize))
+        viewportConfigurationChanged();
     IntSize newLayoutSize = m_viewportConfiguration.layoutSize();
 
     if (setFixedLayoutSize(newLayoutSize))
@@ -3001,10 +3053,12 @@ void WebPage::resetViewportDefaultConfiguration(WebFrame* frame, bool hasMobileD
 
 void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale)
 {
+    double initialScale = m_viewportConfiguration.initialScale();
+    m_page->setInitialScale(initialScale);
+
     if (setFixedLayoutSize(m_viewportConfiguration.layoutSize()))
         resetTextAutosizing();
 
-    double initialScale = m_viewportConfiguration.initialScale();
     double scale;
     if (m_userHasChangedPageScaleFactor && zoomToInitialScale == ZoomToInitialScale::No)
         scale = std::max(std::min(pageScaleFactor(), m_viewportConfiguration.maximumScale()), m_viewportConfiguration.minimumScale());
@@ -3229,7 +3283,7 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
         if (selectionIsInsideFixedPositionContainer(frame)) {
             // Ensure that the next layer tree commit contains up-to-date caret/selection rects.
             frameView.frame().selection().setCaretRectNeedsUpdate();
-            sendPartialEditorStateAndSchedulePostLayoutUpdate();
+            scheduleFullEditorStateUpdate();
         }
 
         frameView.didUpdateViewportOverrideRects();
@@ -3547,7 +3601,10 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest reques
         }
     }
 
-    // FIXME: Support Annotation option.
+#if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
+    if (request.options.contains(DocumentEditingContextRequest::Options::Annotation))
+        context.annotatedText = m_textCheckingControllerProxy->annotatedSubstringBetweenPositions(contextBeforeStart, contextAfterEnd);
+#endif
 
     completionHandler(context);
 }

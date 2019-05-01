@@ -47,7 +47,6 @@ set(WTF_PUBLIC_HEADERS
     DateMath.h
     DebugUtilities.h
     DeferrableRefCounted.h
-    DeprecatedOptional.h
     Deque.h
     DisallowCType.h
     Dominators.h
@@ -513,7 +512,9 @@ WEBKIT_MAKE_FORWARDING_HEADERS(WTF
 if (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
+endif ()
 
+if (USE_VERSION_STAMPER)
     add_custom_command(
         TARGET WTF
         PRE_BUILD
@@ -527,10 +528,8 @@ if (MSVC)
         VERBATIM)
 endif ()
 
-file(MAKE_DIRECTORY ${FORWARDING_HEADERS_DIR}/wtf/Scripts)
-
 file(COPY
     ../Scripts/generate-unified-source-bundles.rb
     DESTINATION
-    ${FORWARDING_HEADERS_DIR}/wtf/Scripts
+    ${WTF_SCRIPTS_DIR}
 )

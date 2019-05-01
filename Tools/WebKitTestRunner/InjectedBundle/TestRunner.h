@@ -36,18 +36,6 @@
 #include <wtf/Seconds.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(COCOA)
-#include <wtf/RetainPtr.h>
-#include <CoreFoundation/CFRunLoop.h>
-typedef RetainPtr<CFRunLoopTimerRef> PlatformTimerRef;
-#else
-#include <wtf/RunLoop.h>
-namespace WTR {
-class TestRunner;
-typedef RunLoop::Timer<TestRunner> PlatformTimerRef;
-}
-#endif
-
 namespace WTR {
 
 class TestRunner : public JSWrappable {
@@ -73,6 +61,9 @@ public:
     void notifyDone();
     double preciseTime();
     double timeout() { return m_timeout.milliseconds(); }
+
+    void setRenderTreeDumpOptions(unsigned short);
+    unsigned renderTreeDumpOptions() const { return m_renderTreeDumpOptions; }
 
     // Other dumping.
     void dumpBackForwardList() { m_shouldDumpBackForwardListsForAllWindows = true; }
@@ -230,8 +221,6 @@ public:
     void clearDidReceiveServerRedirectForProvisionalNavigation();
 
     bool shouldWaitUntilDone() const;
-    void waitToDumpWatchdogTimerFired();
-    void invalidateWaitToDumpWatchdogTimer();
 
     // Downloads
     bool shouldFinishAfterDownload() const { return m_shouldFinishAfterDownload; }
@@ -355,6 +344,11 @@ public:
     void runUIScript(JSStringRef script, JSValueRef callback);
     void runUIScriptCallback(unsigned callbackID, JSStringRef result);
 
+    // Contextual menu actions
+    void setAllowedMenuActions(JSValueRef);
+    void installCustomMenuAction(JSStringRef name, bool dismissesAutomatically, JSValueRef callback);
+    void performCustomMenuAction();
+
     void installDidBeginSwipeCallback(JSValueRef);
     void installWillEndSwipeCallback(JSValueRef);
     void installDidEndSwipeCallback(JSValueRef);
@@ -450,6 +444,7 @@ public:
 
     // Open panel
     void setOpenPanelFiles(JSValueRef);
+    void setOpenPanelFilesMediaIcon(JSValueRef);
 
     // Modal alerts
     void setShouldDismissJavaScriptAlertsAsynchronously(bool);
@@ -494,12 +489,15 @@ public:
     // Ad Click Attribution.
     void dumpAdClickAttribution();
     void clearAdClickAttribution();
+    void clearAdClickAttributionsThroughWebsiteDataRemoval();
+    void setAdClickAttributionOverrideTimerForTesting(bool value);
+    void setAdClickAttributionConversionURLForTesting(JSStringRef);
+    void markAdClickAttributionsAsExpiredForTesting();
 
 private:
     TestRunner();
 
     void platformInitialize();
-    void initializeWaitToDumpWatchdogTimerIfNeeded();
 
     void setDumpPixels(bool);
     void setWaitUntilDone(bool);
@@ -508,60 +506,57 @@ private:
 
     WKRetainPtr<WKURLRef> m_testURL; // Set by InjectedBundlePage once provisional load starts.
 
-    bool m_shouldDumpAllFrameScrollPositions;
-    bool m_shouldDumpBackForwardListsForAllWindows;
-
-    bool m_shouldAllowEditing;
-    bool m_shouldCloseExtraWindows;
-
-    bool m_dumpEditingCallbacks;
-    bool m_dumpStatusCallbacks;
-    bool m_dumpTitleChanges;
-    bool m_dumpPixels;
-    bool m_dumpSelectionRect;
-    bool m_dumpFullScreenCallbacks;
-    bool m_dumpProgressFinishedCallback;
-    bool m_dumpResourceLoadCallbacks;
-    bool m_dumpResourceResponseMIMETypes;
-    bool m_dumpWillCacheResponse;
-    bool m_dumpApplicationCacheDelegateCallbacks;
-    bool m_dumpDatabaseCallbacks;
-    bool m_dumpPolicyCallbacks { false };
-    bool m_disallowIncreaseForApplicationCacheQuota;
-    bool m_testRepaint;
-    bool m_testRepaintSweepHorizontally;
-    bool m_isPrinting;
-
-    bool m_willSendRequestReturnsNull;
-    bool m_willSendRequestReturnsNullOnRedirect;
-    bool m_shouldStopProvisionalFrameLoads;
     String m_willSendRequestHTTPBody;
+    WTF::Seconds m_timeout { 30_s };
 
-    bool m_policyDelegateEnabled;
-    bool m_policyDelegatePermissive;
-    
-    bool m_globalFlag;
-    bool m_customFullScreenBehavior;
+    WKRetainPtr<WKStringRef> m_userStyleSheetLocation;
+    WKRetainPtr<WKArrayRef> m_allowedHosts;
 
-    WTF::Seconds m_timeout;
+    double m_databaseDefaultQuota { -1 };
+    double m_databaseMaxQuota { -1 };
 
-    double m_databaseDefaultQuota;
-    double m_databaseMaxQuota;
+    size_t m_userMediaPermissionRequestCount { 0 };
+
+    unsigned m_renderTreeDumpOptions { 0 };
+    bool m_shouldDumpAllFrameScrollPositions { false };
+    bool m_shouldDumpBackForwardListsForAllWindows { false };
+    bool m_shouldAllowEditing { true };
+    bool m_shouldCloseExtraWindows { false };
+
+    bool m_dumpEditingCallbacks { false };
+    bool m_dumpStatusCallbacks { false };
+    bool m_dumpTitleChanges { false };
+    bool m_dumpPixels { false };
+    bool m_dumpSelectionRect { false };
+    bool m_dumpFullScreenCallbacks { false };
+    bool m_dumpProgressFinishedCallback { false };
+    bool m_dumpResourceLoadCallbacks { false };
+    bool m_dumpResourceResponseMIMETypes { false };
+    bool m_dumpWillCacheResponse { false };
+    bool m_dumpApplicationCacheDelegateCallbacks { false };
+    bool m_dumpDatabaseCallbacks { false };
+    bool m_dumpPolicyCallbacks { false };
+
+    bool m_disallowIncreaseForApplicationCacheQuota { false };
+    bool m_testRepaint { false };
+    bool m_testRepaintSweepHorizontally { false };
+    bool m_isPrinting { false };
+    bool m_willSendRequestReturnsNull { false };
+    bool m_willSendRequestReturnsNullOnRedirect { false };
+    bool m_shouldStopProvisionalFrameLoads { false };
+
+    bool m_policyDelegateEnabled { false };
+    bool m_policyDelegatePermissive { false };
+
+    bool m_globalFlag { false };
+    bool m_customFullScreenBehavior { false };
 
     bool m_shouldDecideNavigationPolicyAfterDelay { false };
     bool m_shouldDecideResponsePolicyAfterDelay { false };
     bool m_shouldFinishAfterDownload { false };
     bool m_didCancelClientRedirect { false };
 
-    bool m_userStyleSheetEnabled;
-    WKRetainPtr<WKStringRef> m_userStyleSheetLocation;
-
-    WKRetainPtr<WKArrayRef> m_allowedHosts;
-
-    size_t m_userMediaPermissionRequestCount { 0 };
-
-    PlatformTimerRef m_waitToDumpWatchdogTimer;
-
+    bool m_userStyleSheetEnabled { false };
     bool m_dumpAllHTTPRedirectedResponseHeaders { false };
 };
 

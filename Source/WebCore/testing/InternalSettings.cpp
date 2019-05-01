@@ -51,6 +51,10 @@
 #include "SoupNetworkSession.h"
 #endif
 
+#if PLATFORM(GTK)
+#include <gtk/gtk.h>
+#endif
+
 namespace WebCore {
 
 InternalSettings::Backup::Backup(Settings& settings)
@@ -58,6 +62,7 @@ InternalSettings::Backup::Backup(Settings& settings)
 #if ENABLE(TEXT_AUTOSIZING)
     , m_originalTextAutosizingEnabled(settings.textAutosizingEnabled())
     , m_originalTextAutosizingWindowSizeOverride(settings.textAutosizingWindowSizeOverride())
+    , m_originalTextAutosizingUsesIdempotentMode(settings.textAutosizingUsesIdempotentMode())
 #endif
     , m_originalMediaTypeOverride(settings.mediaTypeOverride())
     , m_originalCanvasUsesAcceleratedDrawing(settings.canvasUsesAcceleratedDrawing())
@@ -95,9 +100,6 @@ InternalSettings::Backup::Backup(Settings& settings)
     , m_deferredCSSParserEnabled(settings.deferredCSSParserEnabled())
     , m_inputEventsEnabled(settings.inputEventsEnabled())
     , m_incompleteImageBorderEnabled(settings.incompleteImageBorderEnabled())
-#if ENABLE(ACCESSIBILITY_EVENTS)
-    , m_accessibilityEventsEnabled(settings.accessibilityEventsEnabled())
-#endif
     , m_shouldDeactivateAudioSession(PlatformMediaSessionManager::shouldDeactivateAudioSession())
     , m_userInterfaceDirectionPolicy(settings.userInterfaceDirectionPolicy())
     , m_systemLayoutDirection(settings.systemLayoutDirection())
@@ -160,6 +162,7 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
 #if ENABLE(TEXT_AUTOSIZING)
     settings.setTextAutosizingEnabled(m_originalTextAutosizingEnabled);
     settings.setTextAutosizingWindowSizeOverride(m_originalTextAutosizingWindowSizeOverride);
+    settings.setTextAutosizingUsesIdempotentMode(m_originalTextAutosizingUsesIdempotentMode);
 #endif
     settings.setMediaTypeOverride(m_originalMediaTypeOverride);
     settings.setCanvasUsesAcceleratedDrawing(m_originalCanvasUsesAcceleratedDrawing);
@@ -205,9 +208,6 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
     settings.setFrameFlattening(m_frameFlattening);
     settings.setIncompleteImageBorderEnabled(m_incompleteImageBorderEnabled);
     PlatformMediaSessionManager::setShouldDeactivateAudioSession(m_shouldDeactivateAudioSession);
-#if ENABLE(ACCESSIBILITY_EVENTS)
-    settings.setAccessibilityEventsEnabled(m_accessibilityEventsEnabled);
-#endif
 
 #if ENABLE(INDEXED_DATABASE_IN_WORKERS)
     RuntimeEnabledFeatures::sharedFeatures().setIndexedDBWorkersEnabled(m_indexedDBWorkersEnabled);
@@ -280,7 +280,7 @@ void InternalSettings::resetToConsistentState()
     m_page->setPageScaleFactor(1, { 0, 0 });
     m_page->mainFrame().setPageAndTextZoomFactors(1, 1);
     m_page->setCanStartMedia(true);
-    m_page->setUseDarkAppearance(false);
+    setUseDarkAppearanceInternal(false);
 
     settings().setForcePendingWebGLPolicy(false);
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -423,6 +423,18 @@ ExceptionOr<void> InternalSettings::setTextAutosizingWindowSizeOverride(int widt
     return { };
 }
 
+ExceptionOr<void> InternalSettings::setTextAutosizingUsesIdempotentMode(bool enabled)
+{
+    if (!m_page)
+        return Exception { InvalidAccessError };
+#if ENABLE(TEXT_AUTOSIZING)
+    settings().setTextAutosizingUsesIdempotentMode(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+    return { };
+}
+
 ExceptionOr<void> InternalSettings::setMediaTypeOverride(const String& mediaType)
 {
     if (!m_page)
@@ -521,11 +533,27 @@ ExceptionOr<bool> InternalSettings::shouldDisplayTrackKind(const String& kind)
 #endif
 }
 
+void InternalSettings::setUseDarkAppearanceInternal(bool useDarkAppearance)
+{
+#if PLATFORM(GTK)
+    // GTK doesn't allow to change the theme from the web process, but tests need to do it, so
+    // we do it here only for tests.
+    if (auto* settings = gtk_settings_get_default()) {
+        gboolean preferDarkTheme;
+        g_object_get(settings, "gtk-application-prefer-dark-theme", &preferDarkTheme, nullptr);
+        if (preferDarkTheme != useDarkAppearance)
+            g_object_set(settings, "gtk-application-prefer-dark-theme", useDarkAppearance, nullptr);
+    }
+#endif
+    ASSERT(m_page);
+    m_page->setUseDarkAppearance(useDarkAppearance);
+}
+
 ExceptionOr<void> InternalSettings::setUseDarkAppearance(bool useDarkAppearance)
 {
     if (!m_page)
         return Exception { InvalidAccessError };
-    m_page->setUseDarkAppearance(useDarkAppearance);
+    setUseDarkAppearanceInternal(useDarkAppearance);
     return { };
 }
 
@@ -887,18 +915,6 @@ ExceptionOr<void> InternalSettings::setShouldManageAudioSessionCategory(bool sho
 ExceptionOr<void> InternalSettings::setCustomPasteboardDataEnabled(bool enabled)
 {
     RuntimeEnabledFeatures::sharedFeatures().setCustomPasteboardDataEnabled(enabled);
-    return { };
-}
-
-ExceptionOr<void> InternalSettings::setAccessibilityEventsEnabled(bool enabled)
-{
-    if (!m_page)
-        return Exception { InvalidAccessError };
-#if ENABLE(ACCESSIBILITY_EVENTS)
-    settings().setAccessibilityEventsEnabled(enabled);
-#else
-    UNUSED_PARAM(enabled);
-#endif
     return { };
 }
 

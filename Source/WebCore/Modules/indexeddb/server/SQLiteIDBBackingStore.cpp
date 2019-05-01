@@ -29,6 +29,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "IDBBindingUtilities.h"
+#include "IDBCursorInfo.h"
 #include "IDBGetAllRecordsData.h"
 #include "IDBGetAllResult.h"
 #include "IDBGetRecordData.h"
@@ -1004,10 +1005,9 @@ IDBError SQLiteIDBBackingStore::createObjectStore(const IDBResourceIdentifier& t
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to create an object store without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to create an object store without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() != IDBTransactionMode::Versionchange) {
         LOG_ERROR("Attempt to create an object store in a non-version-change transaction");
         return IDBError { UnknownError, "Attempt to create an object store in a non-version-change transaction"_s };
@@ -1060,10 +1060,9 @@ IDBError SQLiteIDBBackingStore::deleteObjectStore(const IDBResourceIdentifier& t
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to delete an object store without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to delete an object store without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() != IDBTransactionMode::Versionchange) {
         LOG_ERROR("Attempt to delete an object store in a non-version-change transaction");
         return IDBError { UnknownError, "Attempt to delete an object store in a non-version-change transaction"_s };
@@ -1152,10 +1151,9 @@ IDBError SQLiteIDBBackingStore::renameObjectStore(const IDBResourceIdentifier& t
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to rename an object store without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to rename an object store without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() != IDBTransactionMode::Versionchange) {
         LOG_ERROR("Attempt to rename an object store in a non-version-change transaction");
         return IDBError { UnknownError, "Attempt to rename an object store in a non-version-change transaction"_s };
@@ -1187,10 +1185,9 @@ IDBError SQLiteIDBBackingStore::clearObjectStore(const IDBResourceIdentifier& tr
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to clear an object store without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to clear an object store without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() == IDBTransactionMode::Readonly) {
         LOG_ERROR("Attempt to clear an object store in a read-only transaction");
         return IDBError { UnknownError, "Attempt to clear an object store in a read-only transaction"_s };
@@ -1228,10 +1225,9 @@ IDBError SQLiteIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to create an index without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to create an index without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() != IDBTransactionMode::Versionchange) {
         LOG_ERROR("Attempt to create an index in a non-version-change transaction");
         return IDBError { UnknownError, "Attempt to create an index in a non-version-change transaction"_s };
@@ -1421,10 +1417,8 @@ IDBError SQLiteIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transac
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to delete index without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to delete index without an in-progress transaction"_s };
-    }
 
     if (transaction->mode() != IDBTransactionMode::Versionchange) {
         LOG_ERROR("Attempt to delete index during a non-version-change transaction");
@@ -1476,10 +1470,8 @@ IDBError SQLiteIDBBackingStore::renameIndex(const IDBResourceIdentifier& transac
         return IDBError { UnknownError, "Could not rename index"_s };
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to rename an index without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to rename an index without an in-progress transaction"_s };
-    }
 
     if (transaction->mode() != IDBTransactionMode::Versionchange) {
         LOG_ERROR("Attempt to rename an index in a non-version-change transaction");
@@ -1515,10 +1507,8 @@ IDBError SQLiteIDBBackingStore::keyExistsInObjectStore(const IDBResourceIdentifi
     keyExists = false;
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to see if key exists in objectstore without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to see if key exists in objectstore without an in-progress transaction"_s };
-    }
 
     RefPtr<SharedBuffer> keyBuffer = serializeIDBKeyData(keyData);
     if (!keyBuffer) {
@@ -1690,10 +1680,9 @@ IDBError SQLiteIDBBackingStore::deleteRange(const IDBResourceIdentifier& transac
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to delete range from database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to delete range from database without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() == IDBTransactionMode::Readonly) {
         LOG_ERROR("Attempt to delete records from an object store in a read-only transaction");
         return IDBError { UnknownError, "Attempt to delete records from an object store in a read-only transaction"_s };
@@ -1752,7 +1741,9 @@ IDBError SQLiteIDBBackingStore::updateOneIndexForAddRecord(const IDBIndexInfo& i
         return IDBError { };
 
     IndexKey indexKey;
-    generateIndexKeyForValue(*m_globalObject->globalExec(), info, jsValue, indexKey);
+    auto* objectStoreInfo = infoForObjectStore(info.objectStoreIdentifier());
+    ASSERT(objectStoreInfo);
+    generateIndexKeyForValue(*m_globalObject->globalExec(), info, jsValue, indexKey, objectStoreInfo->keyPath(), key);
 
     if (indexKey.isNull())
         return IDBError { };
@@ -1772,7 +1763,7 @@ IDBError SQLiteIDBBackingStore::updateAllIndexesForAddRecord(const IDBObjectStor
     bool anyRecordsSucceeded = false;
     for (auto& index : info.indexMap().values()) {
         IndexKey indexKey;
-        generateIndexKeyForValue(*m_globalObject->globalExec(), index, jsValue, indexKey);
+        generateIndexKeyForValue(*m_globalObject->globalExec(), index, jsValue, indexKey, info.keyPath(), key);
 
         if (indexKey.isNull())
             continue;
@@ -1811,10 +1802,9 @@ IDBError SQLiteIDBBackingStore::addRecord(const IDBResourceIdentifier& transacti
     ASSERT(value.blobURLs().size() == value.blobFilePaths().size());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to store a record in an object store without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to store a record in an object store without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() == IDBTransactionMode::Readonly) {
         LOG_ERROR("Attempt to store a record in an object store in a read-only transaction");
         return IDBError { UnknownError, "Attempt to store a record in an object store in a read-only transaction"_s };
@@ -1980,10 +1970,8 @@ IDBError SQLiteIDBBackingStore::getRecord(const IDBResourceIdentifier& transacti
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to get a record from database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to get a record from database without an in-progress transaction"_s };
-    }
 
     auto key = keyRange.lowerKey;
     if (key.isNull())
@@ -2004,12 +1992,12 @@ IDBError SQLiteIDBBackingStore::getRecord(const IDBResourceIdentifier& transacti
     }
 
     int64_t recordID = 0;
-    ThreadSafeDataBuffer resultBuffer;
+    ThreadSafeDataBuffer keyResultBuffer, valueResultBuffer;
     {
-        static const char* const lowerOpenUpperOpen = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
-        static const char* const lowerOpenUpperClosed = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
-        static const char* const lowerClosedUpperOpen = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
-        static const char* const lowerClosedUpperClosed = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
+        static const char* const lowerOpenUpperOpen = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
+        static const char* const lowerOpenUpperClosed = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
+        static const char* const lowerClosedUpperOpen = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
+        static const char* const lowerClosedUpperClosed = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
 
         static const char* const lowerOpenUpperOpenKeyOnly = "SELECT key FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
         static const char* const lowerOpenUpperClosedKeyOnly = "SELECT key FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
@@ -2066,27 +2054,31 @@ IDBError SQLiteIDBBackingStore::getRecord(const IDBResourceIdentifier& transacti
             return IDBError { UnknownError, "Error looking up record in object store by key range"_s };
         }
 
-        Vector<uint8_t> buffer;
-        sql->getColumnBlobAsVector(0, buffer);
-        resultBuffer = ThreadSafeDataBuffer::create(WTFMove(buffer));
+        Vector<uint8_t> keyBuffer;
+        sql->getColumnBlobAsVector(0, keyBuffer);
+        keyResultBuffer = ThreadSafeDataBuffer::create(WTFMove(keyBuffer));
 
-        if (type == IDBGetRecordDataType::KeyAndValue)
-            recordID = sql->getColumnInt64(1);
+        if (type == IDBGetRecordDataType::KeyAndValue) {
+            Vector<uint8_t> valueBuffer;
+            sql->getColumnBlobAsVector(1, valueBuffer);
+            valueResultBuffer = ThreadSafeDataBuffer::create(WTFMove(valueBuffer));
+            recordID = sql->getColumnInt64(2);
+        }
+    }
+
+    auto* keyVector = keyResultBuffer.data();
+    if (!keyVector) {
+        LOG_ERROR("Unable to deserialize key data from database for IDBObjectStore");
+        return IDBError { UnknownError, "Error extracting key data from database executing IDBObjectStore get"_s };
+    }
+    
+    IDBKeyData keyData;
+    if (!deserializeIDBKeyData(keyVector->data(), keyVector->size(), keyData)) {
+        LOG_ERROR("Unable to deserialize key data from database for IDBObjectStore");
+        return IDBError { UnknownError, "Error extracting key data from database executing IDBObjectStore get"_s };
     }
 
     if (type == IDBGetRecordDataType::KeyOnly) {
-        auto* vector = resultBuffer.data();
-        if (!vector) {
-            LOG_ERROR("Unable to deserialize key data from database for IDBObjectStore.getKey()");
-            return IDBError { UnknownError, "Error extracting key data from database executing IDBObjectStore.getKey()"_s };
-        }
-
-        IDBKeyData keyData;
-        if (!deserializeIDBKeyData(vector->data(), vector->size(), keyData)) {
-            LOG_ERROR("Unable to deserialize key data from database for IDBObjectStore.getKey()");
-            return IDBError { UnknownError, "Error extracting key data from database executing IDBObjectStore.getKey()"_s };
-        }
-
         resultValue = { keyData };
         return IDBError { };
     }
@@ -2100,7 +2092,9 @@ IDBError SQLiteIDBBackingStore::getRecord(const IDBResourceIdentifier& transacti
     if (!error.isNull())
         return error;
 
-    resultValue = { { resultBuffer, WTFMove(blobURLs), sessionID, WTFMove(blobFilePaths) } };
+    auto* objectStoreInfo = infoForObjectStore(objectStoreID);
+    ASSERT(objectStoreInfo);
+    resultValue = { keyData, { valueResultBuffer, WTFMove(blobURLs), sessionID, WTFMove(blobFilePaths) }, objectStoreInfo->keyPath()};
     return IDBError { };
 }
 
@@ -2115,10 +2109,10 @@ SQLiteStatement* SQLiteIDBBackingStore::cachedStatementForGetAllObjectStoreRecor
     static const char* const lowerOpenUpperClosedKey = "SELECT key FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
     static const char* const lowerClosedUpperOpenKey = "SELECT key FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
     static const char* const lowerClosedUpperClosedKey = "SELECT key FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
-    static const char* const lowerOpenUpperOpenValue = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
-    static const char* const lowerOpenUpperClosedValue = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
-    static const char* const lowerClosedUpperOpenValue = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
-    static const char* const lowerClosedUpperClosedValue = "SELECT value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
+    static const char* const lowerOpenUpperOpenValue = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
+    static const char* const lowerOpenUpperClosedValue = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key > CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
+    static const char* const lowerClosedUpperOpenValue = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key < CAST(? AS TEXT) ORDER BY key;";
+    static const char* const lowerClosedUpperClosedValue = "SELECT key, value, ROWID FROM Records WHERE objectStoreID = ? AND key >= CAST(? AS TEXT) AND key <= CAST(? AS TEXT) ORDER BY key;";
 
     if (getAllRecordsData.getAllType == IndexedDB::GetAllType::Keys) {
         if (getAllRecordsData.keyRangeData.lowerOpen) {
@@ -2151,10 +2145,8 @@ IDBError SQLiteIDBBackingStore::getAllObjectStoreRecords(const IDBResourceIdenti
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to get records from database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to get records from database without an in-progress transaction"_s };
-    }
 
     auto key = getAllRecordsData.keyRangeData.lowerKey;
     if (key.isNull())
@@ -2183,7 +2175,9 @@ IDBError SQLiteIDBBackingStore::getAllObjectStoreRecords(const IDBResourceIdenti
         return IDBError { UnknownError, "Failed to look up record in object store by key range"_s };
     }
 
-    result = { getAllRecordsData.getAllType };
+    auto* objectStoreInfo = infoForObjectStore(getAllRecordsData.objectStoreIdentifier);
+    ASSERT(objectStoreInfo);
+    result = { getAllRecordsData.getAllType, objectStoreInfo->keyPath() };
 
     uint32_t targetResults;
     if (getAllRecordsData.count && getAllRecordsData.count.value())
@@ -2195,12 +2189,21 @@ IDBError SQLiteIDBBackingStore::getAllObjectStoreRecords(const IDBResourceIdenti
     uint32_t returnedResults = 0;
 
     while (sqlResult == SQLITE_ROW && returnedResults < targetResults) {
-        if (getAllRecordsData.getAllType == IndexedDB::GetAllType::Values) {
-            Vector<uint8_t> buffer;
-            sql->getColumnBlobAsVector(0, buffer);
-            ThreadSafeDataBuffer resultBuffer = ThreadSafeDataBuffer::create(WTFMove(buffer));
+        Vector<uint8_t> keyBuffer;
+        IDBKeyData keyData;
+        sql->getColumnBlobAsVector(0, keyBuffer);
+        if (!deserializeIDBKeyData(keyBuffer.data(), keyBuffer.size(), keyData)) {
+            LOG_ERROR("Unable to deserialize key data from database while getting all records");
+            return IDBError { UnknownError, "Unable to deserialize key data while getting all records"_s };
+        }
+        result.addKey(WTFMove(keyData));
 
-            auto recordID = sql->getColumnInt64(1);
+        if (getAllRecordsData.getAllType == IndexedDB::GetAllType::Values) {
+            Vector<uint8_t> valueBuffer;
+            sql->getColumnBlobAsVector(1, valueBuffer);
+            ThreadSafeDataBuffer valueResultBuffer = ThreadSafeDataBuffer::create(WTFMove(valueBuffer));
+
+            auto recordID = sql->getColumnInt64(2);
 
             ASSERT(recordID);
             Vector<String> blobURLs, blobFilePaths;
@@ -2211,18 +2214,7 @@ IDBError SQLiteIDBBackingStore::getAllObjectStoreRecords(const IDBResourceIdenti
             if (!error.isNull())
                 return error;
 
-            result.addValue({ resultBuffer, WTFMove(blobURLs), sessionID, WTFMove(blobFilePaths) });
-        } else {
-            Vector<uint8_t> keyData;
-            IDBKeyData key;
-            sql->getColumnBlobAsVector(0, keyData);
-
-            if (!deserializeIDBKeyData(keyData.data(), keyData.size(), key)) {
-                LOG_ERROR("Unable to deserialize key data from database while getting all key records");
-                return IDBError { UnknownError, "Unable to deserialize key data while getting all key records"_s };
-            }
-
-            result.addKey(WTFMove(key));
+            result.addValue({ valueResultBuffer, WTFMove(blobURLs), sessionID, WTFMove(blobFilePaths) });
         }
 
         ++returnedResults;
@@ -2247,10 +2239,8 @@ IDBError SQLiteIDBBackingStore::getAllIndexRecords(const IDBResourceIdentifier& 
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to get all index records from database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to get all index records from database without an in-progress transaction"_s };
-    }
 
     auto cursor = transaction->maybeOpenBackingStoreCursor(getAllRecordsData.objectStoreIdentifier, getAllRecordsData.indexIdentifier, getAllRecordsData.keyRangeData);
     if (!cursor) {
@@ -2263,16 +2253,18 @@ IDBError SQLiteIDBBackingStore::getAllIndexRecords(const IDBResourceIdentifier& 
         return IDBError { UnknownError, "Cursor failed while looking up index records in database"_s };
     }
 
-    result = { getAllRecordsData.getAllType };
+    auto* objectStoreInfo = infoForObjectStore(getAllRecordsData.objectStoreIdentifier);
+    ASSERT(objectStoreInfo);
+    result = { getAllRecordsData.getAllType, objectStoreInfo->keyPath() };
+
     uint32_t currentCount = 0;
     uint32_t targetCount = getAllRecordsData.count ? getAllRecordsData.count.value() : 0;
     if (!targetCount)
         targetCount = std::numeric_limits<uint32_t>::max();
     while (!cursor->didComplete() && !cursor->didError() && currentCount < targetCount) {
-        if (getAllRecordsData.getAllType == IndexedDB::GetAllType::Keys) {
-            IDBKeyData keyCopy = cursor->currentPrimaryKey();
-            result.addKey(WTFMove(keyCopy));
-        } else
+        IDBKeyData keyCopy = cursor->currentPrimaryKey();
+        result.addKey(WTFMove(keyCopy));
+        if (getAllRecordsData.getAllType == IndexedDB::GetAllType::Values)
             result.addValue(cursor->currentValue() ? *cursor->currentValue() : IDBValue());
 
         ++currentCount;
@@ -2295,10 +2287,8 @@ IDBError SQLiteIDBBackingStore::getIndexRecord(const IDBResourceIdentifier& tran
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to get an index record from database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to get an index record from database without an in-progress transaction"_s };
-    }
 
     if (range.isExactlyOneKey())
         return uncheckedGetIndexRecordForOneKey(indexID, objectStoreID, type, range.lowerKey, getResult);
@@ -2319,8 +2309,11 @@ IDBError SQLiteIDBBackingStore::getIndexRecord(const IDBResourceIdentifier& tran
     else {
         if (type == IndexedDB::IndexRecordType::Key)
             getResult = { cursor->currentPrimaryKey() };
-        else
-            getResult = { cursor->currentValue() ? *cursor->currentValue() : IDBValue(), cursor->currentPrimaryKey() };
+        else {
+            auto* objectStoreInfo = infoForObjectStore(objectStoreID);
+            ASSERT(objectStoreInfo);
+            getResult = { cursor->currentPrimaryKey(), cursor->currentPrimaryKey(), cursor->currentValue() ? *cursor->currentValue() : IDBValue(), objectStoreInfo->keyPath() };
+        }
     }
 
     return IDBError { };
@@ -2371,7 +2364,8 @@ IDBError SQLiteIDBBackingStore::uncheckedGetIndexRecordForOneKey(int64_t indexID
         return IDBError { };
     }
 
-    sql->getColumnBlobAsVector(1, keyVector);
+    Vector<uint8_t> valueVector;
+    sql->getColumnBlobAsVector(1, valueVector);
 
     int64_t recordID = sql->getColumnInt64(2);
     Vector<String> blobURLs, blobFilePaths;
@@ -2382,7 +2376,9 @@ IDBError SQLiteIDBBackingStore::uncheckedGetIndexRecordForOneKey(int64_t indexID
     if (!error.isNull())
         return error;
 
-    getResult = { { ThreadSafeDataBuffer::create(WTFMove(keyVector)), WTFMove(blobURLs), sessionID, WTFMove(blobFilePaths) }, objectStoreKey };
+    auto* objectStoreInfo = infoForObjectStore(objectStoreID);
+    ASSERT(objectStoreInfo);
+    getResult = { objectStoreKey, objectStoreKey, { ThreadSafeDataBuffer::create(WTFMove(valueVector)), WTFMove(blobURLs), sessionID, WTFMove(blobFilePaths) }, objectStoreInfo->keyPath() };
     return IDBError { };
 }
 
@@ -2395,10 +2391,8 @@ IDBError SQLiteIDBBackingStore::getCount(const IDBResourceIdentifier& transactio
     outCount = 0;
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to get count from database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to get count from database without an in-progress transaction"_s };
-    }
 
     auto cursor = transaction->maybeOpenBackingStoreCursor(objectStoreIdentifier, indexIdentifier, range);
     if (!cursor) {
@@ -2458,10 +2452,9 @@ IDBError SQLiteIDBBackingStore::generateKeyNumber(const IDBResourceIdentifier& t
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to generate key in database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to generate key in database without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() == IDBTransactionMode::Readonly) {
         LOG_ERROR("Attempt to generate key in a read-only transaction");
         return IDBError { UnknownError, "Attempt to generate key in a read-only transaction"_s };
@@ -2487,10 +2480,9 @@ IDBError SQLiteIDBBackingStore::revertGeneratedKeyNumber(const IDBResourceIdenti
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to revert key generator value in database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to revert key generator value in database without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() == IDBTransactionMode::Readonly) {
         LOG_ERROR("Attempt to revert key generator value in a read-only transaction");
         return IDBError { UnknownError, "Attempt to revert key generator value in a read-only transaction"_s };
@@ -2508,10 +2500,9 @@ IDBError SQLiteIDBBackingStore::maybeUpdateKeyGeneratorNumber(const IDBResourceI
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to update key generator value in database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to update key generator value in database without an in-progress transaction"_s };
-    }
+
     if (transaction->mode() == IDBTransactionMode::Readonly) {
         LOG_ERROR("Attempt to update key generator value in a read-only transaction");
         return IDBError { UnknownError, "Attempt to update key generator value in a read-only transaction"_s };
@@ -2534,10 +2525,8 @@ IDBError SQLiteIDBBackingStore::openCursor(const IDBResourceIdentifier& transact
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress()) {
-        LOG_ERROR("Attempt to open a cursor in database without an in-progress transaction");
+    if (!transaction || !transaction->inProgress())
         return IDBError { UnknownError, "Attempt to open a cursor in database without an in-progress transaction"_s };
-    }
 
     auto* cursor = transaction->maybeOpenCursor(info);
     if (!cursor) {
@@ -2547,7 +2536,9 @@ IDBError SQLiteIDBBackingStore::openCursor(const IDBResourceIdentifier& transact
 
     m_cursors.set(cursor->identifier(), cursor);
 
-    cursor->currentData(result);
+    auto* objectStoreInfo = infoForObjectStore(info.objectStoreIdentifier());
+    ASSERT(objectStoreInfo);
+    cursor->currentData(result, objectStoreInfo->keyPath());
     return IDBError { };
 }
 
@@ -2566,10 +2557,8 @@ IDBError SQLiteIDBBackingStore::iterateCursor(const IDBResourceIdentifier& trans
 
     ASSERT_UNUSED(transactionIdentifier, cursor->transaction()->transactionIdentifier() == transactionIdentifier);
 
-    if (!cursor->transaction() || !cursor->transaction()->inProgress()) {
-        LOG_ERROR("Attempt to iterate a cursor without an in-progress transaction");
+    if (!cursor->transaction() || !cursor->transaction()->inProgress())
         return IDBError { UnknownError, "Attempt to iterate a cursor without an in-progress transaction"_s };
-    }
 
     auto key = data.keyData;
     auto primaryKey = data.primaryKeyData;
@@ -2590,7 +2579,9 @@ IDBError SQLiteIDBBackingStore::iterateCursor(const IDBResourceIdentifier& trans
         }
     }
 
-    cursor->currentData(result);
+    auto* objectStoreInfo = infoForObjectStore(cursor->objectStoreID());
+    ASSERT(objectStoreInfo);
+    cursor->currentData(result, objectStoreInfo->keyPath());
     return IDBError { };
 }
 
@@ -2695,6 +2686,12 @@ void SQLiteIDBBackingStore::closeSQLiteDB()
         m_sqliteDB->close();
 
     m_sqliteDB = nullptr;
+}
+
+bool SQLiteIDBBackingStore::hasTransaction(const IDBResourceIdentifier& transactionIdentifier) const
+{
+    ASSERT(isMainThread());
+    return m_transactions.contains(transactionIdentifier);
 }
 
 } // namespace IDBServer

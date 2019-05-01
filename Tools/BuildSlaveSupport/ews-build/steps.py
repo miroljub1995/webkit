@@ -23,7 +23,7 @@
 from buildbot.plugins import steps, util
 from buildbot.process import buildstep, logobserver, properties
 from buildbot.process.results import Results, SUCCESS, FAILURE, WARNINGS, SKIPPED, EXCEPTION, RETRY
-from buildbot.steps import master, shell, transfer
+from buildbot.steps import master, shell, transfer, trigger
 from buildbot.steps.source import git
 from buildbot.steps.worker import CompositeStepMixin
 from twisted.internet import defer
@@ -43,7 +43,7 @@ class ConfigureBuild(buildstep.BuildStep):
     description = ["configuring build"]
     descriptionDone = ["Configured build"]
 
-    def __init__(self, platform, configuration, architectures, buildOnly, additionalArguments):
+    def __init__(self, platform, configuration, architectures, buildOnly, triggers, additionalArguments):
         super(ConfigureBuild, self).__init__()
         self.platform = platform
         if platform != 'jsc-only':
@@ -52,6 +52,7 @@ class ConfigureBuild(buildstep.BuildStep):
         self.configuration = configuration
         self.architecture = " ".join(architectures) if architectures else None
         self.buildOnly = buildOnly
+        self.triggers = triggers
         self.additionalArguments = additionalArguments
 
     def start(self):
@@ -65,6 +66,8 @@ class ConfigureBuild(buildstep.BuildStep):
             self.setProperty('architecture', self.architecture, 'config.json')
         if self.buildOnly:
             self.setProperty("buildOnly", self.buildOnly, 'config.json')
+        if self.triggers:
+            self.setProperty('triggers', self.triggers, 'config.json')
         if self.additionalArguments:
             self.setProperty("additionalArguments", self.additionalArguments, 'config.json')
 
@@ -93,6 +96,7 @@ class CheckOutSource(git.Git):
                                                 retry=self.CHECKOUT_DELAY_AND_MAX_RETRIES_PAIR,
                                                 timeout=2 * 60 * 60,
                                                 alwaysUseLatest=True,
+                                                method='clean',
                                                 progress=True,
                                                 **kwargs)
 
@@ -133,7 +137,6 @@ class ApplyPatch(shell.ShellCommand, CompositeStepMixin):
             return None
 
         d = self.downloadFileContentToWorker('.buildbot-diff', patch)
-        d.addCallback(lambda _: self.downloadFileContentToWorker('.buildbot-patched', 'patched\n'))
         d.addCallback(lambda res: shell.ShellCommand.start(self))
 
     def getResultSummary(self):
@@ -383,6 +386,23 @@ class UnApplyPatchIfRequired(CleanWorkingDirectory):
         return not self.doStepIf(step)
 
 
+class Trigger(trigger.Trigger):
+    def __init__(self, schedulerNames, **kwargs):
+        set_properties = self.propertiesToPassToTriggers() or {}
+        super(Trigger, self).__init__(schedulerNames=schedulerNames, set_properties=set_properties, **kwargs)
+
+    def propertiesToPassToTriggers(self):
+        return {
+            'patch_id': properties.Property('patch_id'),
+            'bug_id': properties.Property('bug_id'),
+            'configuration': properties.Property('configuration'),
+            'platform': properties.Property('platform'),
+            'fullPlatform': properties.Property('fullPlatform'),
+            'architecture': properties.Property('architecture'),
+            'owner': properties.Property('owner'),
+        }
+
+
 class TestWithFailureCount(shell.Test):
     failedTestsFormatString = "%d test%s failed"
     failedTestCount = 0
@@ -447,6 +467,45 @@ class RunBindingsTests(shell.ShellCommand):
     logfiles = {'json': jsonFileName}
     command = ['Tools/Scripts/run-bindings-tests', '--json-output={0}'.format(jsonFileName)]
 
+    def __init__(self, **kwargs):
+        super(RunBindingsTests, self).__init__(timeout=5 * 60, **kwargs)
+
+    def start(self):
+        self.log_observer = logobserver.BufferLogObserver()
+        self.addLogObserver('json', self.log_observer)
+        return shell.ShellCommand.start(self)
+
+    def getResultSummary(self):
+        if self.results == SUCCESS:
+            message = 'Passed bindings tests'
+            self.build.buildFinished([message], SUCCESS)
+            return {u'step': unicode(message)}
+
+        logLines = self.log_observer.getStdout()
+        json_text = ''.join([line for line in logLines.splitlines()])
+        try:
+            webkitpy_results = json.loads(json_text)
+        except Exception as ex:
+            self._addToLog('stderr', 'ERROR: unable to parse data, exception: {}'.format(ex))
+            return super(RunBindingsTests, self).getResultSummary()
+
+        failures = webkitpy_results.get('failures')
+        if not failures:
+            return super(RunBindingsTests, self).getResultSummary()
+        pluralSuffix = 's' if len(failures) > 1 else ''
+        failures_string = ', '.join([failure.replace('(JS) ', '') for failure in failures])
+        message = 'Found {} Binding test failure{}: {}'.format(len(failures), pluralSuffix, failures_string)
+        self.build.buildFinished([message], FAILURE)
+        return {u'step': unicode(message)}
+
+    @defer.inlineCallbacks
+    def _addToLog(self, logName, message):
+        try:
+            log = self.getLog(logName)
+        except KeyError:
+            log = yield self.addLog(logName)
+        log.addStdout(message)
+
 
 class RunWebKitPerlTests(shell.ShellCommand):
     name = 'webkitperl-tests'
@@ -470,6 +529,42 @@ class RunWebKitPyTests(shell.ShellCommand):
 
     def __init__(self, **kwargs):
         super(RunWebKitPyTests, self).__init__(timeout=2 * 60, **kwargs)
+
+    def start(self):
+        self.log_observer = logobserver.BufferLogObserver()
+        self.addLogObserver('json', self.log_observer)
+        return shell.ShellCommand.start(self)
+
+    def getResultSummary(self):
+        if self.results == SUCCESS:
+            message = 'Passed webkitpy tests'
+            self.build.buildFinished([message], SUCCESS)
+            return {u'step': unicode(message)}
+
+        logLines = self.log_observer.getStdout()
+        json_text = ''.join([line for line in logLines.splitlines()])
+        try:
+            webkitpy_results = json.loads(json_text)
+        except Exception as ex:
+            self._addToLog('stderr', 'ERROR: unable to parse data, exception: {}'.format(ex))
+            return super(RunWebKitPyTests, self).getResultSummary()
+
+        failures = webkitpy_results.get('failures') + webkitpy_results.get('errors')
+        if not failures:
+            return super(RunWebKitPyTests, self).getResultSummary()
+        pluralSuffix = 's' if len(failures) > 1 else ''
+        failures_string = ', '.join([failure.get('name').replace('webkitpy.', '') for failure in failures])
+        message = 'Found {} WebKitPy test failure{}: {}'.format(len(failures), pluralSuffix, failures_string)
+        self.build.buildFinished([message], FAILURE)
+        return {u'step': unicode(message)}
+
+    @defer.inlineCallbacks
+    def _addToLog(self, logName, message):
+        try:
+            log = self.getLog(logName)
+        except KeyError:
+            log = yield self.addLog(logName)
+        log.addStdout(message)
 
 
 def appendCustomBuildFlags(step, platform, fullPlatform):
@@ -665,6 +760,7 @@ class UploadBuiltProduct(transfer.FileUpload):
     name = 'upload-built-product'
     workersrc = WithProperties('WebKitBuild/%(configuration)s.zip')
     masterdest = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(patch_id)s.zip')
+    descriptionDone = ['Uploaded built product']
     haltOnFailure = True
 
     def __init__(self, **kwargs):
@@ -673,6 +769,19 @@ class UploadBuiltProduct(transfer.FileUpload):
         kwargs['mode'] = 0644
         kwargs['blocksize'] = 1024 * 256
         transfer.FileUpload.__init__(self, **kwargs)
+
+    def finished(self, results):
+        if results == SUCCESS:
+            triggers = self.getProperty('triggers', None)
+            if triggers:
+                self.build.addStepsAfterCurrentStep([Trigger(schedulerNames=triggers)])
+
+        return super(UploadBuiltProduct, self).finished(results)
+
+    def getResultSummary(self):
+        if self.results != SUCCESS:
+            return {u'step': u'Failed to upload built product'}
+        return super(UploadBuiltProduct, self).getResultSummary()
 
 
 class DownloadBuiltProduct(shell.ShellCommand):
@@ -792,18 +901,23 @@ class AnalyzeAPITestsResults(buildstep.BuildStep):
         second_run_failures = getAPITestFailures(second_run_results)
         clean_tree_failures = getAPITestFailures(clean_tree_results)
 
-        self._addToLog('stderr', '\nFailures in API Test first run: {}'.format(first_run_failures))
-        self._addToLog('stderr', '\nFailures in API Test second run: {}'.format(first_run_failures))
-        self._addToLog('stderr', '\nFailures in API Test on clean tree: {}'.format(clean_tree_failures))
         failures_with_patch = first_run_failures.intersection(second_run_failures)
+        flaky_failures = first_run_failures.union(second_run_failures) - first_run_failures.intersection(second_run_failures)
+        flaky_failures_string = ', '.join([failure_name.replace('TestWebKitAPI.', '') for failure_name in flaky_failures])
         new_failures = failures_with_patch - clean_tree_failures
         new_failures_string = ', '.join([failure_name.replace('TestWebKitAPI.', '') for failure_name in new_failures])
+
+        self._addToLog('stderr', '\nFailures in API Test first run: {}'.format(first_run_failures))
+        self._addToLog('stderr', '\nFailures in API Test second run: {}'.format(second_run_failures))
+        self._addToLog('stderr', '\nFlaky Tests: {}'.format(flaky_failures))
+        self._addToLog('stderr', '\nFailures in API Test on clean tree: {}'.format(clean_tree_failures))
 
         if new_failures:
             self._addToLog('stderr', '\nNew failures: {}\n'.format(new_failures))
             self.finished(FAILURE)
             self.build.results = FAILURE
-            message = 'Found {} new API Tests failures: {}'.format(len(new_failures), new_failures_string)
+            pluralSuffix = 's' if len(new_failures) > 1 else ''
+            message = 'Found {} new API Test failure{}: {}'.format(len(new_failures), pluralSuffix, new_failures_string)
             self.descriptionDone = message
             self.build.buildFinished([message], FAILURE)
         else:
@@ -811,7 +925,10 @@ class AnalyzeAPITestsResults(buildstep.BuildStep):
             self.finished(SUCCESS)
             self.build.results = SUCCESS
             self.descriptionDone = 'Passed API tests'
-            message = 'Found {} pre-existing API tests failures'.format(len(clean_tree_failures))
+            pluralSuffix = 's' if len(clean_tree_failures) > 1 else ''
+            message = 'Found {} pre-existing API test failure{}'.format(len(clean_tree_failures), pluralSuffix)
+            if flaky_failures:
+                message += '. Flaky tests: {}'.format(flaky_failures_string)
             self.build.buildFinished([message], SUCCESS)
 
     @defer.inlineCallbacks

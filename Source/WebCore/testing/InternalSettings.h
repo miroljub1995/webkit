@@ -61,6 +61,7 @@ public:
     ExceptionOr<void> setPictographFontFamily(const String& family, const String& script);
     ExceptionOr<void> setTextAutosizingEnabled(bool);
     ExceptionOr<void> setTextAutosizingWindowSizeOverride(int width, int height);
+    ExceptionOr<void> setTextAutosizingUsesIdempotentMode(bool);
     ExceptionOr<void> setTextAutosizingFontScaleFactor(float);
     ExceptionOr<void> setMediaTypeOverride(const String&);
     ExceptionOr<void> setCanStartMedia(bool);
@@ -101,7 +102,6 @@ public:
     ExceptionOr<void> setShouldMockBoldSystemFontForAccessibility(bool);
     ExceptionOr<void> setShouldManageAudioSessionCategory(bool);
     ExceptionOr<void> setCustomPasteboardDataEnabled(bool);
-    ExceptionOr<void> setAccessibilityEventsEnabled(bool);
     ExceptionOr<void> setIncompleteImageBorderEnabled(bool);
 
     using FrameFlatteningValue = FrameFlattening;
@@ -137,6 +137,8 @@ private:
     Settings& settings() const;
     static const char* supplementName();
 
+    void setUseDarkAppearanceInternal(bool);
+
     class Backup {
     public:
         explicit Backup(Settings&);
@@ -156,6 +158,7 @@ private:
 #if ENABLE(TEXT_AUTOSIZING)
         bool m_originalTextAutosizingEnabled;
         IntSize m_originalTextAutosizingWindowSizeOverride;
+        bool m_originalTextAutosizingUsesIdempotentMode;
 #endif
 
         String m_originalMediaTypeOverride;
@@ -195,9 +198,6 @@ private:
         bool m_deferredCSSParserEnabled;
         bool m_inputEventsEnabled;
         bool m_incompleteImageBorderEnabled;
-#if ENABLE(ACCESSIBILITY_EVENTS)
-        bool m_accessibilityEventsEnabled;
-#endif
         bool m_shouldDeactivateAudioSession;
         UserInterfaceDirectionPolicy m_userInterfaceDirectionPolicy;
         TextDirection m_systemLayoutDirection;

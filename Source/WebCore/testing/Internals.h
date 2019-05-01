@@ -706,6 +706,7 @@ public:
     void simulateMediaStreamTrackCaptureSourceFailure(MediaStreamTrack&);
     void setMediaStreamTrackIdentifier(MediaStreamTrack&, String&& id);
     void setMediaStreamSourceInterrupted(MediaStreamTrack&, bool);
+    void setDisableGetDisplayMediaUserGestureConstraint(bool);
 #endif
 
     String audioSessionCategory() const;
@@ -814,6 +815,8 @@ public:
     void processWillSuspend();
     void processDidResume();
 
+    void testDictionaryLogging();
+        
 private:
     explicit Internals(Document&);
     Document* contextDocument() const;

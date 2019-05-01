@@ -3597,6 +3597,7 @@ svg/custom/second-inline-text.xhtml [ Failure ]
 tables/mozilla/bugs/bug4427.html [ Failure ]
 transitions/clip-path-path-transitions.html [ Failure ]
 legacy-animation-engine/transitions/clip-path-path-transitions.html [ Failure ]
+fast/text/font-weight-1-1000.html [ Failure ]
 # Unexpected image-only failures tracked in webkit.org/b/172437.
 editing/selection/update-selection-by-style-change.html [ ImageOnlyFailure ]
 fast/borders/border-painting-correctness-dashed.html [ ImageOnlyFailure ]
@@ -3633,6 +3634,7 @@ editing/selection/character-granularity-selected-range-after-dismissing-selectio
 fast/dom/FileList-iterator-using-open-panel.html [ Skip ]
 fast/forms/file/file-input-reset-using-open-panel.html [ Skip ]
 fast/forms/file/file-reset-in-change-using-open-panel.html [ Skip ]
+fast/forms/file/file-reset-in-change-using-open-panel-with-icon.html [ Skip ]
 fast/forms/file/get-file-upload-using-open-panel.html [ Skip ]
 fast/forms/file/input-file-value-using-open-panel.html [ Skip ]
 fast/forms/file/input-file-write-files-using-open-panel.html [ Skip ]
@@ -4330,3 +4332,7 @@ webkit.org/b/196680 printing/page-with-zero-margin.html [ Failure ]
 webkit.org/b/196869 animations/animation-multiple-callbacks-timestamp.html [ Failure ]
 webkit.org/b/196869 legacy-animation-engine/animations/animation-multiple-callbacks-timestamp.html [ Failure ]
 webkit.org/b/196869 imported/mozilla/css-animations/test_animation-currenttime.html [ Failure ]
+
+webkit.org/b/194450 storage/indexeddb/modern/gc-closes-database-private.html [ Skip ]
+
+webkit.org/b/197310 fast/harness/render-tree-as-text-options.html [ Failure ]

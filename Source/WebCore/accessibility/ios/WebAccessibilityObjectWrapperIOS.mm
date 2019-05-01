@@ -1518,17 +1518,6 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return [self convertRectToSpace:floatRect space:AccessibilityConversionSpace::Screen].origin;
 }
 
-- (BOOL)accessibilityPerformEscape
-{
-    if (![self _prepareAccessibilityCall])
-        return NO;
-    
-    m_object->dispatchAccessibilityEventWithType(AccessibilityEventType::Dismiss);
-    
-    // Return whether a listener received this event so it prevents other callers up the hierarchy chain.
-    return m_object->shouldDispatchAccessibilityEvent() && m_object->hasAccessibleDismissEventListener();
-}
-
 - (BOOL)_accessibilityScrollToVisible
 {
     if (![self _prepareAccessibilityCall])
@@ -1995,14 +1984,6 @@ static RenderObject* rendererForView(WAKView* view)
     return (NSArray *)convertToNSArray(results);
 }
 
-- (void)accessibilityElementDidBecomeFocused
-{
-    if (![self _prepareAccessibilityCall])
-        return;
-    
-    m_object->dispatchAccessibilityEventWithType(AccessibilityEventType::Focus);
-}
-
 - (void)accessibilityModifySelection:(TextGranularity)granularity increase:(BOOL)increase
 {
     if (![self _prepareAccessibilityCall])
@@ -2024,6 +2005,11 @@ static RenderObject* rendererForView(WAKView* view)
 - (void)accessibilityIncreaseSelection:(TextGranularity)granularity
 {
     [self accessibilityModifySelection:granularity increase:YES];
+}
+
+- (void)_accessibilitySetFocus:(BOOL)focus
+{
+    [self baseAccessibilitySetFocus:focus];
 }
 
 - (void)accessibilityDecreaseSelection:(TextGranularity)granularity

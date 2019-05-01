@@ -57,6 +57,7 @@
 #include "FrameSelection.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "FullscreenManager.h"
 #include "HTMLElement.h"
 #include "HTMLMediaElement.h"
 #include "HistoryController.h"
@@ -1074,6 +1075,11 @@ void Page::setDeviceScaleFactor(float scaleFactor)
     PageCache::singleton().markPagesForDeviceOrPageScaleChanged(*this);
 
     pageOverlayController().didChangeDeviceScaleFactor();
+}
+
+void Page::setInitialScale(float initialScale)
+{
+    m_initialScale = initialScale;
 }
 
 void Page::setUserInterfaceLayoutDirection(UserInterfaceLayoutDirection userInterfaceLayoutDirection)
@@ -2785,7 +2791,7 @@ void Page::setFullscreenControlsHidden(bool hidden)
     for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
         if (!frame->document())
             continue;
-        frame->document()->setFullscreenControlsHidden(hidden);
+        frame->document()->fullscreenManager().setFullscreenControlsHidden(hidden);
     }
 #else
     UNUSED_PARAM(hidden);
@@ -2956,6 +2962,11 @@ void Page::configureLoggingChannel(const String& channelName, WTFLogChannelState
     if (auto* channel = getLogChannel(channelName)) {
         channel->state = state;
         channel->level = level;
+
+#if USE(LIBWEBRTC)
+        if (channel == &LogWebRTC && m_mainFrame->document())
+            libWebRTCProvider().setEnableLogging(!m_mainFrame->document()->sessionID().isEphemeral());
+#endif
     }
 
     chrome().client().configureLoggingChannel(channelName, state, level);

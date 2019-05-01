@@ -35,6 +35,7 @@
 #include "DocumentTimeline.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "FullscreenManager.h"
 #include "GraphicsLayer.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLIFrameElement.h"
@@ -275,6 +276,11 @@ static inline bool compositingLogEnabled()
 {
     return LogCompositing.state == WTFLogChannelState::On;
 }
+
+static inline bool layersLogEnabled()
+{
+    return LogLayers.state == WTFLogChannelState::On;
+}
 #endif
 
 RenderLayerCompositor::RenderLayerCompositor(RenderView& renderView)
@@ -491,7 +497,7 @@ void RenderLayerCompositor::flushPendingLayerChanges(bool isFlushRoot)
     // As long as we're not the root of the flush, we can bail.
     if (!isFlushRoot && rootLayerAttachment() == RootLayerAttachedViaEnclosingFrame)
         return;
-    
+
     if (rootLayerAttachment() == RootLayerUnattached) {
 #if PLATFORM(IOS_FAMILY)
         startLayerFlushTimerIfNeeded();
@@ -514,6 +520,13 @@ void RenderLayerCompositor::flushPendingLayerChanges(bool isFlushRoot)
         }
         
         ASSERT(m_flushingLayers);
+
+#if ENABLE(TREE_DEBUGGING)
+        if (layersLogEnabled()) {
+            LOG(Layers, "RenderLayerCompositor::flushPendingLayerChanges");
+            showGraphicsLayerTree(m_rootContentsLayer.get());
+        }
+#endif
     }
 
 #if PLATFORM(IOS_FAMILY)
@@ -805,8 +818,6 @@ bool RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType update
     if (compositingLogEnabled()) {
         LOG(Compositing, "RenderLayerCompositor::updateCompositingLayers - post");
         showPaintOrderTree(m_renderView.layer());
-        LOG(Compositing, "RenderLayerCompositor::updateCompositingLayers - GraphicsLayers post, contentLayersCount %d", m_contentLayersCount);
-        showGraphicsLayerTree(m_rootContentsLayer.get());
     }
 #endif
 
@@ -1413,6 +1424,20 @@ static bool styleAffectsLayerGeometry(const RenderStyle& style)
     return style.hasClip() || style.clipPath() || style.hasBorderRadius();
 }
 
+static bool recompositeChangeRequiresGeometryUpdate(const RenderStyle& oldStyle, const RenderStyle& newStyle)
+{
+    return oldStyle.transform() != newStyle.transform()
+        || oldStyle.transformOriginX() != newStyle.transformOriginX()
+        || oldStyle.transformOriginY() != newStyle.transformOriginY()
+        || oldStyle.transformOriginZ() != newStyle.transformOriginZ()
+        || oldStyle.transformStyle3D() != newStyle.transformStyle3D()
+        || oldStyle.perspective() != newStyle.perspective()
+        || oldStyle.perspectiveOriginX() != newStyle.perspectiveOriginX()
+        || oldStyle.perspectiveOriginY() != newStyle.perspectiveOriginY()
+        || oldStyle.backfaceVisibility() != newStyle.backfaceVisibility()
+        || !arePointingToEqualData(oldStyle.clipPath(), newStyle.clipPath());
+}
+
 void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer& layer, const RenderStyle* oldStyle)
 {
     if (diff == StyleDifference::Equal)
@@ -1466,12 +1491,10 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
     if (diff == StyleDifference::RecompositeLayer && layer.isComposited() && is<RenderWidget>(layer.renderer()))
         layer.setNeedsCompositingConfigurationUpdate();
 
-    if (diff >= StyleDifference::RecompositeLayer && oldStyle) {
-        if (oldStyle->transform() != newStyle.transform()) {
-            // FIXME: transform changes really need to trigger layout. See RenderElement::adjustStyleDifference().
-            layer.setNeedsPostLayoutCompositingUpdate();
-            layer.setNeedsCompositingGeometryUpdate();
-        }
+    if (diff >= StyleDifference::RecompositeLayer && oldStyle && recompositeChangeRequiresGeometryUpdate(*oldStyle, newStyle)) {
+        // FIXME: transform changes really need to trigger layout. See RenderElement::adjustStyleDifference().
+        layer.setNeedsPostLayoutCompositingUpdate();
+        layer.setNeedsCompositingGeometryUpdate();
     }
 
     if (diff >= StyleDifference::Layout) {
@@ -2185,10 +2208,10 @@ static FullScreenDescendant isDescendantOfFullScreenLayer(const RenderLayer& lay
 {
     auto& document = layer.renderer().document();
 
-    if (!document.webkitIsFullScreen() || !document.fullScreenRenderer())
+    if (!document.fullscreenManager().isFullscreen() || !document.fullscreenManager().fullscreenRenderer())
         return FullScreenDescendant::NotApplicable;
 
-    auto* fullScreenLayer = document.fullScreenRenderer()->layer();
+    auto* fullScreenLayer = document.fullscreenManager().fullscreenRenderer()->layer();
     if (!fullScreenLayer) {
         ASSERT_NOT_REACHED();
         return FullScreenDescendant::NotApplicable;

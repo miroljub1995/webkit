@@ -42,8 +42,7 @@ struct FileTimes {
 FileTimes fileTimes(const String& path);
 void updateFileModificationTimeIfNeeded(const String& path);
 
-bool isSafeToUseMemoryMapForPath(const String& path);
-void registerPathAsUnsafeToMemoryMapForTesting(const String&);
+void makeSafeToUseMemoryMapForPath(const String&);
 
 }
 }

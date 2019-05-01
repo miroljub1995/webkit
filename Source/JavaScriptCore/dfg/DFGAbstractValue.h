@@ -48,6 +48,7 @@ namespace DFG {
 
 class Graph;
 struct Node;
+class VariableAccessData;
 
 struct AbstractValue {
     AbstractValue()
@@ -303,7 +304,7 @@ struct AbstractValue {
         return result;
     }
     
-    bool mergeOSREntryValue(Graph&, JSValue);
+    bool mergeOSREntryValue(Graph&, JSValue, VariableAccessData*, Node*);
     
     void merge(SpeculatedType type)
     {
@@ -525,11 +526,8 @@ private:
             return true;
         
         if (m_type & SpecInt52Any) {
-            ASSERT(!(m_type & ~SpecInt52Any));
-
-            if (mergeSpeculations(m_type, int52AwareSpeculationFromValue(value)) != m_type)
-                return false;
-            return true;
+            if (mergeSpeculations(m_type, int52AwareSpeculationFromValue(value)) == m_type)
+                return true;
         }
 
         if (mergeSpeculations(m_type, speculationFromValue(value)) != m_type)
