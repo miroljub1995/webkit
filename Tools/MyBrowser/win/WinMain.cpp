@@ -29,7 +29,7 @@
 #pragma warning(disable: 4091)
 
 #include "stdafx.h"
-//#include "Common.h"
+#include "Common.h"
 //#include "MiniBrowserLibResource.h"
 //#include "MiniBrowserReplace.h"
 //#include "WebKitLegacyBrowserWindow.h"
@@ -39,7 +39,6 @@
 #if ENABLE(WEBKIT)
 //#include "WebKitBrowserWindow.h"
 #endif
-
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpstrCmdLine, _In_ int nCmdShow)
 {
@@ -62,7 +61,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
     ::SetProcessDPIAware();
 
-	MyBrowserWindow myBrowserWindow(hInstance);
+	MyBrowserWindow myBrowserWindow(hInst);
 
     ShowWindow(myBrowserWindow.hwnd(), nCmdShow);
 

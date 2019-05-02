@@ -13,6 +13,10 @@ std::wstring MyBrowserWindow::s_windowClass;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    switch (message) {
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
     return 0;
 }
 void MyBrowserWindow::registerClass(HINSTANCE hInstance)

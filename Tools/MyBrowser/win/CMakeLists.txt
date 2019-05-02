@@ -12,7 +12,7 @@ set(MyBrowser_INCLUDE_DIRECTORIES
 set(MyBrowser_SOURCES
     #AccessibilityDelegate.cpp
     #BrowserWindow.cpp
-    #Common.cpp
+    Common.cpp
     #DOMDefaultImpl.cpp
     #MainWindow.cpp
     #PageLoadTestClient.cpp
