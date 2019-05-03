@@ -24,7 +24,7 @@ set(MyBrowser_SOURCES
     #WebKitLegacyBrowserWindow.cpp
     WinMain.cpp
     stdafx.cpp
-	MyBrowserWindow.cpp
+	MyMainWindow.cpp
 )
 
 set(MyBrowser_LIBRARIES

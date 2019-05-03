@@ -30,11 +30,11 @@
 
 #include "stdafx.h"
 #include "Common.h"
-//#include "MiniBrowserLibResource.h"
+#include "MyBrowserLibResource.h"
 //#include "MiniBrowserReplace.h"
 //#include "WebKitLegacyBrowserWindow.h"
 //#include <WebKitLegacy/WebKitCOMAPI.h>
-#include "MyBrowserWindow.h"
+#include "MyMainWindow.h"
 
 #if ENABLE(WEBKIT)
 //#include "WebKitBrowserWindow.h"
@@ -61,36 +61,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
     ::SetProcessDPIAware();
 
-	MyBrowserWindow myBrowserWindow(hInst);
+	MyMainWindow myBrowserWindow(hInst);
 
     ShowWindow(myBrowserWindow.hwnd(), nCmdShow);
 
-    //hAccelTable = LoadAccelerators(hInst, MAKEINTRESOURCE(IDC_MINIBROWSER));
-
-//#pragma warning(disable:4509)
-
-    // Main message loop:
-    //__try {
-      //  _com_ptr_t<_com_IIID<IWebKitMessageLoop, &__uuidof(IWebKitMessageLoop)>> messageLoop;
-
-        //hr = WebKitCreateInstance(CLSID_WebKitMessageLoop, 0, IID_IWebKitMessageLoop, reinterpret_cast<void**>(&messageLoop.GetInterfacePtr()));
-        //if (FAILED(hr))
-          //  goto exit;
-
-        //messageLoop->run(hAccelTable);
-
-    //} __except(createCrashReport(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) { }
-    /*
-exit:
-    shutDownWebKit();
-#ifdef _CRTDBG_MAP_ALLOC
-    _CrtDumpMemoryLeaks();
-#endif
-
-    // Shut down COM.
-    OleUninitialize();
-
-    return static_cast<int>(msg.wParam);*/
+	hAccelTable = LoadAccelerators(hInst, MAKEINTRESOURCE(IDC_MYBROWSER));
+	myBrowserWindow.run(hAccelTable);
     return 0;
 }
 
