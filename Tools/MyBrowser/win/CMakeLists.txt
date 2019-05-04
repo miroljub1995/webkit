@@ -21,10 +21,11 @@ set(MyBrowser_SOURCES
     #WebDownloadDelegate.cpp
     MyBrowserLib.rc
     #MiniBrowserWebHost.cpp
-    #WebKitLegacyBrowserWindow.cpp
+    MyBrowserWindow.cpp
     WinMain.cpp
     stdafx.cpp
 	MyMainWindow.cpp
+	MyWebView.cpp
 )
 
 set(MyBrowser_LIBRARIES

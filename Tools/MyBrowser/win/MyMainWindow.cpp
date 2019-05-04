@@ -1,13 +1,11 @@
+
+#include "stdafx.h"
 #include "MyMainWindow.h"
 #include "MyBrowserLibResource.h"
-
-
 
 namespace WebCore {
 float deviceScaleFactorForWindow(HWND);
 }
-
-
 
 /*
 static std::wstring loadString(int id)
@@ -22,7 +20,7 @@ std::wstring MyMainWindow::s_windowClass;
 
 LRESULT CALLBACK MyMainWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    MyMainWindow *thisWindow = reinterpret_cast<MyMainWindow*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    MyMainWindow* thisWindow = reinterpret_cast<MyMainWindow*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     switch (message) {
     case WM_CREATE:
         SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(reinterpret_cast<LPCREATESTRUCT>(lParam)->lpCreateParams));
@@ -50,7 +48,7 @@ void MyMainWindow::resizeSubViews()
     //int height = scaleFactor * urlBarHeight;
     //int width = scaleFactor * controlButtonWidth;
 
-    //MoveWindow(m_hMainWnd, 100, 100, 200/*rcClient.right*/, 200/*rcClient.bottom*/, TRUE);
+    MoveWindow(m_browserWindow->hwnd(), rcClient.left, rcClient.top, rcClient.right, rcClient.bottom, TRUE);
 }
 
 void MyMainWindow::registerClass(HINSTANCE hInstance)
@@ -87,6 +85,12 @@ MyMainWindow::MyMainWindow(HINSTANCE hInstance)
 
     m_hMainWnd = CreateWindow(s_windowClass.c_str(), title.c_str(), WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, 0, 0, hInstance, this);
+
+    m_browserWindow = MyBrowserWindow::create(m_hMainWnd, 0, hInstance, false, false);
+    m_browserWindow->init();
+    //m_browserWindow->loadHTMLString(BSTR(L"<html><body><div>Ovo je stranica</div></body></html>"));
+    m_browserWindow->loadURL(L"https://www.google.com");
+    //((WebView*)(&(m_browserWindow->m_webView)))->page()
 }
 
 HWND MyMainWindow::hwnd()
@@ -94,7 +98,7 @@ HWND MyMainWindow::hwnd()
     return m_hMainWnd;
 }
 
-HRESULT MyMainWindow::run(HACCEL hAccelTable)
+HRESULT MyMainWindow::run(_In_ HACCEL hAccelTable)
 {
     MSG msg{};
 

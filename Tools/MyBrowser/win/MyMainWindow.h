@@ -1,12 +1,15 @@
 #pragma once
 
-#include "stdafx.h"
+#include "MyBrowserWindow.h"
+#include "wtf/RefPtr.h"
+#include <string>
 
 class MyMainWindow {
 
 private:
     static std::wstring s_windowClass;
     HWND m_hMainWnd;
+    RefPtr<MyBrowserWindow> m_browserWindow;
 
     static LRESULT WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
     void registerClass(HINSTANCE hInstance);
